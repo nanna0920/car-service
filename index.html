@@ -2288,6 +2288,8 @@
 
         // ===== cartime_items (송영시간표 비교) Supabase 연동 =====
         let ctAllRecords = [];
+        let ctSortCol = 'date';
+        let ctSortDir = 1; // 1=오름차순, -1=내림차순
 
         function switchDbSubTab(tab) {
             const tabs = ['carservice', 'cartime', 'workingtime'];
@@ -2392,6 +2394,11 @@
             });
         }
 
+        function sortCtBy(col) {
+            if (ctSortCol === col) { ctSortDir *= -1; } else { ctSortCol = col; ctSortDir = 1; }
+            renderCarTimeRecords();
+        }
+
         function renderCarTimeRecords() {
             const content = document.getElementById('ctRecordsContent');
             const yearFilter = document.getElementById('ctYearFilter').value;
@@ -2402,61 +2409,112 @@
                 if (yearFilter && !r.date.startsWith(yearFilter)) return false;
                 if (monthFilter && r.date.substring(5, 7) !== monthFilter) return false;
                 if (matchFilter) {
-                    const hasMatch = r.am_match === matchFilter || r.pm_match === matchFilter;
-                    if (!hasMatch) return false;
+                    const hasMatch = r.am_match === '\ub2e4\ub984' || r.pm_match === '\ub2e4\ub984';
+                    if (matchFilter === '\ub2e4\ub984' && !hasMatch) return false;
+                    if (matchFilter === '\uac19\uc74c') {
+                        const allSame = (r.am_match === '\uac19\uc74c' || !r.am_match) && (r.pm_match === '\uac19\uc74c' || !r.pm_match);
+                        if (!allSame) return false;
+                    }
                 }
                 return true;
             });
 
             if (filtered.length === 0) {
-                content.innerHTML = '<div class="no-data">📭 해당 조건에 저장된 기록이 없습니다.</div>';
+                content.innerHTML = '<div class="no-data">\ud83d\udcad \ud574\ub2f9 \uc870\uac74\uc5d0 \uc800\uc7a5\ub41c \uae30\ub85d\uc774 \uc5c6\uc2b5\ub2c8\ub2e4.</div>';
                 return;
             }
 
-            const byDate = {};
-            filtered.forEach(r => {
-                if (!byDate[r.date]) byDate[r.date] = [];
-                byDate[r.date].push(r);
+            const getVal = (r, col) => {
+                switch(col) {
+                    case 'date':           return r.date || '';
+                    case 'beneficiary':    return r.beneficiary || '';
+                    case 'transport_start':return r.transport_start || '';
+                    case 'schedule_am':    return r.schedule_am || '';
+                    case 'am_car':         return [r.am_car, r.am_driver].filter(Boolean).join('/');
+                    case 'am_match':       return r.am_match || '';
+                    case 'transport_end':  return r.transport_end || '';
+                    case 'schedule_pm':    return r.schedule_pm || '';
+                    case 'pm_car':         return [r.pm_car, r.pm_driver].filter(Boolean).join('/');
+                    case 'pm_match':       return r.pm_match || '';
+                    default:               return '';
+                }
+            };
+            filtered.sort((a, b) => {
+                const av = getVal(a, ctSortCol), bv = getVal(b, ctSortCol);
+                return av < bv ? -ctSortDir : av > bv ? ctSortDir : 0;
             });
 
             const diffStyle = 'background:#ffe6e6;color:#d63031;font-weight:bold;';
             const sameStyle = 'background:#e8f5e9;color:#2e7d32;';
+            const thBase = 'cursor:pointer;user-select:none;white-space:nowrap;';
+            const hover = ' onmouseover="this.style.opacity=\'0.8\'" onmouseout="this.style.opacity=\'1\'"';
+            const icon = col => {
+                if (ctSortCol !== col) return ' <span style="color:rgba(255,255,255,0.4);font-size:0.75em;">\u21c5</span>';
+                return ctSortDir === 1
+                    ? ' <span style="font-size:0.75em;">\u25b2</span>'
+                    : ' <span style="font-size:0.75em;">\u25bc</span>';
+            };
 
-            let html = '<div style="margin-bottom:10px;color:#555;font-size:0.9em;">총 <strong>' + filtered.length + '</strong>건 (' + Object.keys(byDate).length + '일)</div>';
-            html += '<div style="overflow-x:auto;"><table class="result-table" style="font-size:10pt;"><thead>';
-            html += '<tr><th rowspan="2">날짜</th><th rowspan="2">수급자</th><th rowspan="2">삭제</th>';
-            html += '<th colspan="4" style="background:#17a2b8;">🌅 오전</th>';
-            html += '<th colspan="4" style="background:#fd7e14;">🌆 오후</th></tr>';
-            html += '<tr>';
-            html += '<th style="background:#17a2b8;">이동서비스</th><th style="background:#17a2b8;">송영시간표</th><th style="background:#17a2b8;">차량/운전자</th><th style="background:#17a2b8;">비교</th>';
-            html += '<th style="background:#fd7e14;">이동서비스</th><th style="background:#fd7e14;">송영시간표</th><th style="background:#fd7e14;">차량/운전자</th><th style="background:#fd7e14;">비교</th>';
+            const groupByDate = (ctSortCol === 'date');
+            const dateSet = new Set(filtered.map(r => r.date));
+
+            let html = '<div style="margin-bottom:10px;color:#555;font-size:0.9em;">\uc5f4 <strong>' + filtered.length + '</strong>\uac74';
+            if (groupByDate) html += ' (' + dateSet.size + '\uc77c)';
+            html += '</div>';
+            html += '<div style="overflow-x:auto;"><table class="result-table" style="font-size:10pt;"><thead><tr>';
+            html += '<th rowspan="2" style="' + thBase + '" onclick="sortCtBy(\'date\')"' + hover + '>\ub0a0\uc9dc' + icon('date') + '</th>';
+            html += '<th rowspan="2" style="' + thBase + '" onclick="sortCtBy(\'beneficiary\')"' + hover + '>\uc218\uae09\uc790' + icon('beneficiary') + '</th>';
+            html += '<th rowspan="2">\uc0ad\uc81c</th>';
+            html += '<th colspan="4" style="background:#17a2b8;">\ud83c\udf05 \uc624\uc804</th>';
+            html += '<th colspan="4" style="background:#fd7e14;">\ud83c\udf06 \uc624\ud6c4</th></tr><tr>';
+            html += '<th style="background:#17a2b8;' + thBase + '" onclick="sortCtBy(\'transport_start\')"' + hover + '>\uc774\ub3d9\uc11c\ube44\uc2a4' + icon('transport_start') + '</th>';
+            html += '<th style="background:#17a2b8;' + thBase + '" onclick="sortCtBy(\'schedule_am\')"' + hover + '>\uc1a1\uc601\uc2dc\uac04\ud45c' + icon('schedule_am') + '</th>';
+            html += '<th style="background:#17a2b8;' + thBase + '" onclick="sortCtBy(\'am_car\')"' + hover + '>\ucc28\ub7c9/\uc6b4\uc804\uc790' + icon('am_car') + '</th>';
+            html += '<th style="background:#17a2b8;' + thBase + '" onclick="sortCtBy(\'am_match\')"' + hover + '>\ube44\uad50' + icon('am_match') + '</th>';
+            html += '<th style="background:#fd7e14;' + thBase + '" onclick="sortCtBy(\'transport_end\')"' + hover + '>\uc774\ub3d9\uc11c\ube44\uc2a4' + icon('transport_end') + '</th>';
+            html += '<th style="background:#fd7e14;' + thBase + '" onclick="sortCtBy(\'schedule_pm\')"' + hover + '>\uc1a1\uc601\uc2dc\uac04\ud45c' + icon('schedule_pm') + '</th>';
+            html += '<th style="background:#fd7e14;' + thBase + '" onclick="sortCtBy(\'pm_car\')"' + hover + '>\ucc28\ub7c9/\uc6b4\uc804\uc790' + icon('pm_car') + '</th>';
+            html += '<th style="background:#fd7e14;' + thBase + '" onclick="sortCtBy(\'pm_match\')"' + hover + '>\ube44\uad50' + icon('pm_match') + '</th>';
             html += '</tr></thead><tbody>';
 
-            Object.keys(byDate).sort().forEach(date => {
-                const rows = byDate[date];
-                rows.forEach((r, idx) => {
-                    const dateCell = idx === 0
-                        ? '<td rowspan="' + rows.length + '" style="font-weight:bold;background:#e8ecff;vertical-align:top;">' + formatDateWithWeekday(r.date) + '</td>'
-                        : '';
-                    const amStyle = r.am_match === '다름' ? diffStyle : (r.am_match === '같음' ? sameStyle : '');
-                    const pmCellStyle = r.pm_match === '다름' ? diffStyle : (r.pm_match === '같음' ? sameStyle : '');
+            if (groupByDate) {
+                const byDate = {};
+                filtered.forEach(r => { if (!byDate[r.date]) byDate[r.date] = []; byDate[r.date].push(r); });
+                Object.keys(byDate).sort().forEach(date => {
+                    const rows = byDate[date];
+                    rows.forEach((r, idx) => {
+                        const dateCell = idx === 0
+                            ? '<td rowspan="' + rows.length + '" style="font-weight:bold;background:#e8ecff;vertical-align:top;">' + formatDateWithWeekday(r.date) + '</td>'
+                            : '';
+                        const amStyle = r.am_match === '\ub2e4\ub984' ? diffStyle : (r.am_match === '\uac19\uc74c' ? sameStyle : '');
+                        const pmCellStyle = r.pm_match === '\ub2e4\ub984' ? diffStyle : (r.pm_match === '\uac19\uc74c' ? sameStyle : '');
+                        const amCarInfo = [r.am_car, r.am_driver].filter(Boolean).join('/') || '-';
+                        const pmCarInfo = [r.pm_car, r.pm_driver].filter(Boolean).join('/') || '-';
+                        const delBtn = '<button onclick="deleteCtRecord(\'' + r.id + '\')" style="padding:3px 8px;background:#dc3545;color:white;border:none;border-radius:4px;cursor:pointer;font-size:0.85em;">\u2715</button>';
+                        html += '<tr>' + dateCell +
+                            '<td>' + r.beneficiary + '</td><td>' + delBtn + '</td>' +
+                            '<td>' + (r.transport_start||'-') + '</td><td>' + (r.schedule_am||'-') + '</td>' +
+                            '<td style="font-size:0.85em;">' + amCarInfo + '</td><td style="' + amStyle + '">' + (r.am_match||'-') + '</td>' +
+                            '<td>' + (r.transport_end||'-') + '</td><td>' + (r.schedule_pm||'-') + '</td>' +
+                            '<td style="font-size:0.85em;">' + pmCarInfo + '</td><td style="' + pmCellStyle + '">' + (r.pm_match||'-') + '</td></tr>';
+                    });
+                });
+            } else {
+                filtered.forEach(r => {
+                    const amStyle = r.am_match === '\ub2e4\ub984' ? diffStyle : (r.am_match === '\uac19\uc74c' ? sameStyle : '');
+                    const pmCellStyle = r.pm_match === '\ub2e4\ub984' ? diffStyle : (r.pm_match === '\uac19\uc74c' ? sameStyle : '');
                     const amCarInfo = [r.am_car, r.am_driver].filter(Boolean).join('/') || '-';
                     const pmCarInfo = [r.pm_car, r.pm_driver].filter(Boolean).join('/') || '-';
-                    const delBtn = '<button onclick="deleteCtRecord(\'' + r.id + '\')" style="padding:3px 8px;background:#dc3545;color:white;border:none;border-radius:4px;cursor:pointer;font-size:0.85em;">✕</button>';
-                    html += '<tr>' + dateCell +
-                        '<td>' + r.beneficiary + '</td>' +
-                        '<td>' + delBtn + '</td>' +
-                        '<td>' + (r.transport_start || '-') + '</td>' +
-                        '<td>' + (r.schedule_am || '-') + '</td>' +
-                        '<td style="font-size:0.85em;">' + amCarInfo + '</td>' +
-                        '<td style="' + amStyle + '">' + (r.am_match || '-') + '</td>' +
-                        '<td>' + (r.transport_end || '-') + '</td>' +
-                        '<td>' + (r.schedule_pm || '-') + '</td>' +
-                        '<td style="font-size:0.85em;">' + pmCarInfo + '</td>' +
-                        '<td style="' + pmCellStyle + '">' + (r.pm_match || '-') + '</td>' +
-                        '</tr>';
+                    const delBtn = '<button onclick="deleteCtRecord(\'' + r.id + '\')" style="padding:3px 8px;background:#dc3545;color:white;border:none;border-radius:4px;cursor:pointer;font-size:0.85em;">\u2715</button>';
+                    html += '<tr>' +
+                        '<td style="font-weight:bold;background:#e8ecff;">' + formatDateWithWeekday(r.date) + '</td>' +
+                        '<td>' + r.beneficiary + '</td><td>' + delBtn + '</td>' +
+                        '<td>' + (r.transport_start||'-') + '</td><td>' + (r.schedule_am||'-') + '</td>' +
+                        '<td style="font-size:0.85em;">' + amCarInfo + '</td><td style="' + amStyle + '">' + (r.am_match||'-') + '</td>' +
+                        '<td>' + (r.transport_end||'-') + '</td><td>' + (r.schedule_pm||'-') + '</td>' +
+                        '<td style="font-size:0.85em;">' + pmCarInfo + '</td><td style="' + pmCellStyle + '">' + (r.pm_match||'-') + '</td></tr>';
                 });
-            });
+            }
             html += '</tbody></table></div>';
             content.innerHTML = html;
         }
