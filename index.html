@@ -238,6 +238,7 @@
                 <div class="tab-container" style="margin-bottom:0;">
                     <button class="tab-btn active" id="dbSubTabCarservice" onclick="switchDbSubTab('carservice')">📊 이동서비스 분석</button>
                     <button class="tab-btn" id="dbSubTabCartime" onclick="switchDbSubTab('cartime')">🚌 송영시간표 비교</button>
+                    <button class="tab-btn" id="dbSubTabWorkingtime" onclick="switchDbSubTab('workingtime')">⚖️ 근무시간 비교</button>
                 </div>
                 <div id="dbSubCarservice" style="padding-top:16px;">
                 <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px; flex-wrap:wrap;">
@@ -265,6 +266,19 @@
                     </div>
                     <div id="ctStatusMsg" style="padding:10px; background:#e8f5e9; border-radius:8px; margin-bottom:12px; display:none; color:#2e7d32; font-weight:bold;"></div>
                     <div id="ctRecordsContent"><div class="no-data">🔄 새로고침을 눌러 데이터를 불러오세요.</div></div>
+                </div>
+                <!-- 근무시간 비교 서브탭 -->
+                <div id="dbSubWorkingtime" style="padding-top:16px; display:none;">
+                    <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px; flex-wrap:wrap;">
+                        <label style="font-weight:bold; color:#555;">기간 필터:</label>
+                        <select id="wtYearFilter" onchange="renderWorkingTimeRecords()" style="padding:6px 12px; border:1px solid #ddd; border-radius:6px;"><option value="">전체 연도</option></select>
+                        <select id="wtMonthFilter" onchange="renderWorkingTimeRecords()" style="padding:6px 12px; border:1px solid #ddd; border-radius:6px;"><option value="">전체 월</option></select>
+                        <select id="wtEmployeeFilter" onchange="renderWorkingTimeRecords()" style="padding:6px 12px; border:1px solid #ddd; border-radius:6px;"><option value="">전체 직원</option></select>
+                        <button onclick="loadWorkingTimeRecords()" style="padding:6px 14px; background:linear-gradient(135deg,#667eea,#764ba2); color:white; border:none; border-radius:6px; cursor:pointer; font-weight:bold;">🔄 새로고침</button>
+                        <button onclick="deleteAllWorkingTimeRecords()" style="padding:6px 14px; background:#dc3545; color:white; border:none; border-radius:6px; cursor:pointer; font-weight:bold;">🗑️ 전체 삭제</button>
+                    </div>
+                    <div id="wtStatusMsg" style="padding:10px; background:#e8f5e9; border-radius:8px; margin-bottom:12px; display:none; color:#2e7d32; font-weight:bold;"></div>
+                    <div id="wtRecordsContent"><div class="no-data">🔄 새로고침을 눌러 데이터를 불러오세요.</div></div>
                 </div>
             </div>
 
@@ -350,9 +364,11 @@
             <div class="download-section">
                 <a href="#" class="download-btn" onclick="downloadCompareExcel('date')">📥 일자별 엑셀 다운로드</a>
                 <a href="#" class="download-btn" onclick="downloadCompareExcel('employee')">📥 직원별 엑셀 다운로드</a>
+                <button onclick="saveWorkingTimeToSupabase()" style="display:inline-block; padding:12px 25px; background:linear-gradient(135deg,#11998e,#38ef7d); color:white; border:none; border-radius:8px; font-weight:bold; cursor:pointer; margin:5px; font-size:1em;">☁️ Supabase에 저장</button>
             </div>
+            <div id="workingtimeSaveStatusMsg" style="text-align:center; margin-top:8px; font-weight:bold; display:none;"></div>
         </div>
-        
+
         <!-- 송영시간표 비교 결과 -->
         <div class="card" id="scheduleResultCard" style="display:none">
             <h2 style="color: #333; margin-bottom: 20px; text-align: center;">🚌 이동서비스 vs 송영시간표 비교</h2>
@@ -2274,12 +2290,13 @@
         let ctAllRecords = [];
 
         function switchDbSubTab(tab) {
-            const isCarservice = tab === 'carservice';
-            document.getElementById('dbSubCarservice').style.display = isCarservice ? 'block' : 'none';
-            document.getElementById('dbSubCartime').style.display = isCarservice ? 'none' : 'block';
-            document.getElementById('dbSubTabCarservice').classList.toggle('active', isCarservice);
-            document.getElementById('dbSubTabCartime').classList.toggle('active', !isCarservice);
-            if (!isCarservice && ctAllRecords.length === 0) loadCarTimeRecords();
+            const tabs = ['carservice', 'cartime', 'workingtime'];
+            tabs.forEach(t => {
+                document.getElementById('dbSub' + t.charAt(0).toUpperCase() + t.slice(1)).style.display = (tab === t) ? 'block' : 'none';
+                document.getElementById('dbSubTab' + t.charAt(0).toUpperCase() + t.slice(1)).classList.toggle('active', tab === t);
+            });
+            if (tab === 'cartime' && ctAllRecords.length === 0) loadCarTimeRecords();
+            if (tab === 'workingtime' && wtAllRecords.length === 0) loadWorkingTimeRecords();
         }
 
         async function saveCarTimeToSupabase() {
@@ -2487,6 +2504,243 @@
             setTimeout(() => { el.style.display = 'none'; }, 3000);
         }
         // ===== cartime_items 연동 끝 =====
+
+        // ===== workingtime_items (근무시간 비교) Supabase 연동 =====
+        let wtAllRecords = [];
+
+        async function saveWorkingTimeToSupabase() {
+            if (!compareData || !compareData.by_date || compareData.by_date.length === 0) {
+                alert('저장할 근무시간 비교 데이터가 없습니다. 먼저 비교를 실행해주세요.');
+                return;
+            }
+            const msgEl = document.getElementById('workingtimeSaveStatusMsg');
+            msgEl.style.display = 'block';
+            msgEl.style.color = '#555';
+            msgEl.textContent = '⏳ Supabase에 저장 중...';
+
+            const rows = compareData.by_date.map(item => ({
+                date: item.date,
+                employee: item.employee,
+                row_index: item.row_index,
+                total_rows: item.total_rows,
+                work_type: item.work_type !== '-' ? item.work_type : null,
+                transport_start: item.transport_start !== '-' ? item.transport_start : null,
+                transport_end: item.transport_end !== '-' ? item.transport_end : null,
+                schedule_start: item.schedule_start !== '-' ? item.schedule_start : null,
+                schedule_end: item.schedule_end !== '-' ? item.schedule_end : null,
+                schedule_work_hours: item.schedule_work_hours !== '-' ? item.schedule_work_hours : null,
+                schedule_break: item.schedule_break !== '-' ? item.schedule_break : null,
+                attendance_start: item.attendance_start !== '-' ? item.attendance_start : null,
+                attendance_end: item.attendance_end !== '-' ? item.attendance_end : null,
+                attendance_work_hours: item.attendance_work_hours !== '-' ? item.attendance_work_hours : null,
+                attendance_break: item.attendance_break !== '-' ? item.attendance_break : null
+            }));
+
+            const { error } = await supabaseClient
+                .from('workingtime_items')
+                .upsert(rows, { onConflict: 'date,employee,row_index' });
+
+            if (error) {
+                msgEl.style.color = '#dc3545';
+                msgEl.textContent = '❌ 저장 실패: ' + error.message;
+            } else {
+                msgEl.style.color = '#28a745';
+                msgEl.textContent = '✅ ' + rows.length + '건이 Supabase에 저장되었습니다.';
+                setTimeout(() => { msgEl.style.display = 'none'; }, 4000);
+            }
+        }
+
+        async function loadWorkingTimeRecords() {
+            const content = document.getElementById('wtRecordsContent');
+            content.innerHTML = '<div style="text-align:center;padding:30px;color:#666;">⏳ 데이터를 불러오는 중...</div>';
+
+            const { data, error } = await supabaseClient
+                .from('workingtime_items')
+                .select('*')
+                .order('date', { ascending: true })
+                .order('employee', { ascending: true })
+                .order('row_index', { ascending: true });
+
+            if (error) {
+                content.innerHTML = '<div class="error">❌ 데이터 로드 실패: ' + error.message + '</div>';
+                return;
+            }
+
+            wtAllRecords = data || [];
+            buildWtFilters();
+            renderWorkingTimeRecords();
+        }
+
+        function buildWtFilters() {
+            const years = [...new Set(wtAllRecords.map(r => r.date.substring(0, 4)))].sort();
+            const yearSel = document.getElementById('wtYearFilter');
+            const curYear = yearSel.value;
+            yearSel.innerHTML = '<option value="">전체 연도</option>';
+            years.forEach(y => {
+                const opt = document.createElement('option');
+                opt.value = y; opt.textContent = y + '년';
+                if (y === curYear) opt.selected = true;
+                yearSel.appendChild(opt);
+            });
+
+            const months = [...new Set(wtAllRecords.map(r => r.date.substring(5, 7)))].sort();
+            const monthSel = document.getElementById('wtMonthFilter');
+            const curMonth = monthSel.value;
+            monthSel.innerHTML = '<option value="">전체 월</option>';
+            months.forEach(m => {
+                const opt = document.createElement('option');
+                opt.value = m; opt.textContent = parseInt(m) + '월';
+                if (m === curMonth) opt.selected = true;
+                monthSel.appendChild(opt);
+            });
+
+            const employees = [...new Set(wtAllRecords.map(r => r.employee))].sort();
+            const empSel = document.getElementById('wtEmployeeFilter');
+            const curEmp = empSel.value;
+            empSel.innerHTML = '<option value="">전체 직원</option>';
+            employees.forEach(e => {
+                const opt = document.createElement('option');
+                opt.value = e; opt.textContent = e;
+                if (e === curEmp) opt.selected = true;
+                empSel.appendChild(opt);
+            });
+        }
+
+        function renderWorkingTimeRecords() {
+            const content = document.getElementById('wtRecordsContent');
+            const yearFilter = document.getElementById('wtYearFilter').value;
+            const monthFilter = document.getElementById('wtMonthFilter').value;
+            const empFilter = document.getElementById('wtEmployeeFilter').value;
+
+            // row_index === 0 인 레코드만 기준으로 필터 (실제 표시는 같은 date+employee 묶음 전체)
+            const baseKeys = new Set();
+            wtAllRecords.forEach(r => {
+                if (r.row_index === 0) {
+                    if (yearFilter && !r.date.startsWith(yearFilter)) return;
+                    if (monthFilter && r.date.substring(5, 7) !== monthFilter) return;
+                    if (empFilter && r.employee !== empFilter) return;
+                    baseKeys.add(r.date + '|' + r.employee);
+                }
+            });
+
+            const filtered = wtAllRecords.filter(r => baseKeys.has(r.date + '|' + r.employee));
+
+            if (filtered.length === 0) {
+                content.innerHTML = '<div class="no-data">📭 해당 조건에 저장된 기록이 없습니다.</div>';
+                return;
+            }
+
+            // 날짜별 그룹화
+            const byDate = {};
+            filtered.forEach(r => {
+                if (!byDate[r.date]) byDate[r.date] = {};
+                if (!byDate[r.date][r.employee]) byDate[r.date][r.employee] = [];
+                byDate[r.date][r.employee].push(r);
+            });
+
+            const totalCount = [...new Set(filtered.map(r => r.date + '|' + r.employee))].length;
+            let html = '<div style="margin-bottom:10px;color:#555;font-size:0.9em;">총 <strong>' + totalCount + '</strong>건 (' + Object.keys(byDate).length + '일)</div>';
+            html += '<div style="overflow-x:auto;"><table class="compare-table" style="font-size:10pt;"><thead>';
+            html += '<tr><th rowspan="2">날짜</th><th rowspan="2">직원명</th><th rowspan="2">유형</th>';
+            html += '<th colspan="2" class="transport-header">🚗 이동서비스</th>';
+            html += '<th colspan="4" class="schedule-header">📋 근무일정</th>';
+            html += '<th colspan="4" class="attendance-header">🕐 실제출퇴근</th>';
+            html += '<th rowspan="2">삭제</th></tr>';
+            html += '<tr>';
+            html += '<th class="transport-header">시작</th><th class="transport-header">종료</th>';
+            html += '<th class="schedule-header">시작</th><th class="schedule-header">종료</th><th class="schedule-header">휴게</th><th class="schedule-header">총근무</th>';
+            html += '<th class="attendance-header">출근</th><th class="attendance-header">퇴근</th><th class="attendance-header">휴게</th><th class="attendance-header">총근무</th>';
+            html += '</tr></thead><tbody>';
+
+            Object.keys(byDate).sort().forEach(date => {
+                const empMap = byDate[date];
+                let dateFirstRow = true;
+                const dateTotalRows = Object.values(empMap).reduce((sum, rows) => sum + rows.length, 0);
+
+                Object.keys(empMap).sort().forEach(emp => {
+                    const empRows = empMap[emp];
+                    let empFirstRow = true;
+
+                    empRows.forEach(r => {
+                        const dateCell = dateFirstRow
+                            ? '<td rowspan="' + dateTotalRows + '" style="font-weight:bold;background:#e8ecff;vertical-align:top;">' + formatDateWithWeekday(r.date) + '</td>'
+                            : '';
+                        const empCell = empFirstRow
+                            ? '<td rowspan="' + empRows.length + '" style="vertical-align:top;">' + r.employee + '</td>'
+                            : '';
+                        const delBtn = r.row_index === 0
+                            ? '<button onclick="deleteWtRecord(\'' + date + '\',\'' + emp.replace(/'/g, "\\'") + '\')" style="padding:3px 8px;background:#dc3545;color:white;border:none;border-radius:4px;cursor:pointer;font-size:0.85em;">✕</button>'
+                            : '';
+                        const rowNum = empRows.length > 1 ? '<span style="color:#999;font-size:0.8em;">' + (r.row_index + 1) + '/' + empRows.length + '</span>' : '';
+                        html += '<tr>' + dateCell + empCell +
+                            '<td>' + (r.work_type || '-') + rowNum + '</td>' +
+                            '<td>' + (r.transport_start || '-') + '</td>' +
+                            '<td>' + (r.transport_end || '-') + '</td>' +
+                            '<td class="schedule-time">' + (r.schedule_start || '-') + '</td>' +
+                            '<td class="schedule-time">' + (r.schedule_end || '-') + '</td>' +
+                            '<td class="schedule-time">' + (r.schedule_break || '-') + '</td>' +
+                            '<td class="schedule-time">' + (r.schedule_work_hours || '-') + '</td>' +
+                            '<td class="attendance-time">' + (r.attendance_start || '-') + '</td>' +
+                            '<td class="attendance-time">' + (r.attendance_end || '-') + '</td>' +
+                            '<td class="attendance-time">' + (r.attendance_break || '-') + '</td>' +
+                            '<td class="attendance-time">' + (r.attendance_work_hours || '-') + '</td>' +
+                            '<td>' + delBtn + '</td>' +
+                            '</tr>';
+                        dateFirstRow = false;
+                        empFirstRow = false;
+                    });
+                });
+            });
+            html += '</tbody></table></div>';
+            content.innerHTML = html;
+        }
+
+        async function deleteWtRecord(date, employee) {
+            if (!confirm(date + ' / ' + employee + ' 의 기록을 삭제하시겠습니까?')) return;
+            const { error } = await supabaseClient
+                .from('workingtime_items')
+                .delete()
+                .eq('date', date)
+                .eq('employee', employee);
+            if (error) { alert('삭제 실패: ' + error.message); return; }
+            wtAllRecords = wtAllRecords.filter(r => !(r.date === date && r.employee === employee));
+            renderWorkingTimeRecords();
+            showWtStatus('✅ 기록이 삭제되었습니다.');
+        }
+
+        async function deleteAllWorkingTimeRecords() {
+            const yearFilter = document.getElementById('wtYearFilter').value;
+            const monthFilter = document.getElementById('wtMonthFilter').value;
+            const label = (yearFilter ? yearFilter + '년 ' : '') + (monthFilter ? parseInt(monthFilter) + '월 ' : '전체 ');
+            if (!confirm(label + '근무시간 비교 기록을 모두 삭제하시겠습니까?')) return;
+
+            let query;
+            if (yearFilter || monthFilter) {
+                const filtered = wtAllRecords.filter(r => {
+                    if (yearFilter && !r.date.startsWith(yearFilter)) return false;
+                    if (monthFilter && r.date.substring(5, 7) !== monthFilter) return false;
+                    return true;
+                });
+                const ids = filtered.map(r => r.id);
+                if (ids.length === 0) { alert('삭제할 기록이 없습니다.'); return; }
+                query = supabaseClient.from('workingtime_items').delete().in('id', ids);
+            } else {
+                query = supabaseClient.from('workingtime_items').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+            }
+
+            const { error } = await query;
+            if (error) { alert('삭제 실패: ' + error.message); return; }
+            await loadWorkingTimeRecords();
+            showWtStatus('✅ 선택한 기록이 모두 삭제되었습니다.');
+        }
+
+        function showWtStatus(msg) {
+            const el = document.getElementById('wtStatusMsg');
+            el.textContent = msg;
+            el.style.display = 'block';
+            setTimeout(() => { el.style.display = 'none'; }, 3000);
+        }
+        // ===== workingtime_items 연동 끝 =====
         // ===== Supabase 연동 끝 =====
     </script>
 </body>
