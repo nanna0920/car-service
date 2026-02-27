@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cmd:*)",
+      "Bash(powershell:*)",
+      "Bash(curl:*)",
+      "Bash(git:*)",
+      "Bash(GIT_DIR=\"D:/노인복지시설/사무실서류/파이썬프로그램모음/이동서비스분석앱/.git\" GIT_WORK_TREE=\"D:/노인복지시설/사무실서류/파이썬프로그램모음/이동서비스분석앱\" git config:*)",
+      "Bash(__NEW_LINE_82eaeed0f5c547eb__ git:*)"
+    ]
+  }
+}

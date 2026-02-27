@@ -1,0 +1,2055 @@
+
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>이동서비스 분석 프로그램</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; padding: 20px; }
+        .container { max-width: 1600px; margin: 0 auto; }
+        .card { background: white; border-radius: 16px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); padding: 30px; margin-bottom: 20px; }
+        h1 { color: #333; text-align: center; margin-bottom: 30px; font-size: 1.8em; }
+        .main-tab-container { display: flex; margin-bottom: 20px; border-bottom: 3px solid #667eea; }
+        .main-tab-btn { flex: 1; padding: 15px 20px; background: #f5f5f5; border: none; cursor: pointer; font-size: 1em; font-weight: bold; color: #666; transition: all 0.3s; }
+        .main-tab-btn:first-child { border-radius: 12px 0 0 0; }
+        .main-tab-btn:last-child { border-radius: 0 12px 0 0; }
+        .main-tab-btn.active { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+        .main-tab-btn:hover:not(.active) { background: #e8ecff; }
+        .main-tab-content { display: none; }
+        .main-tab-content.active { display: block; }
+        .upload-area { border: 3px dashed #ddd; border-radius: 12px; padding: 40px; text-align: center; transition: all 0.3s; cursor: pointer; margin-bottom: 20px; }
+        .upload-area:hover { border-color: #667eea; background: #f8f9ff; }
+        .upload-area.dragover { border-color: #667eea; background: #f0f3ff; }
+        .upload-area.has-file { border-color: #28a745; background: #e8f5e9; }
+        .upload-icon { font-size: 48px; margin-bottom: 15px; }
+        .upload-text { color: #666; font-size: 1.1em; }
+        .file-name { color: #667eea; font-weight: bold; margin-top: 10px; }
+        input[type="file"] { display: none; }
+        .analyze-btn { width: 100%; padding: 15px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 10px; font-size: 1.1em; font-weight: bold; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; }
+        .analyze-btn:hover { transform: translateY(-2px); box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4); }
+        .analyze-btn:disabled { background: #ccc; cursor: not-allowed; transform: none; box-shadow: none; }
+        .month-navigator { display: flex; justify-content: center; align-items: center; gap: 15px; margin-bottom: 20px; padding: 15px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; }
+        .nav-arrow { width: 50px; height: 50px; border: none; background: rgba(255,255,255,0.2); color: white; font-size: 1.5em; border-radius: 50%; cursor: pointer; transition: all 0.3s; display: flex; align-items: center; justify-content: center; }
+        .nav-arrow:hover:not(:disabled) { background: rgba(255,255,255,0.4); transform: scale(1.1); }
+        .nav-arrow:disabled { opacity: 0.3; cursor: not-allowed; }
+        .month-selector { display: flex; align-items: center; gap: 10px; }
+        .month-dropdown { padding: 10px 15px; font-size: 1.1em; font-weight: bold; border: none; border-radius: 8px; background: rgba(255,255,255,0.9); color: #333; cursor: pointer; outline: none; }
+        .month-label { color: white; font-size: 1.1em; font-weight: bold; }
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
+        .calendar-day-header { text-align: center; font-weight: bold; color: #666; padding: 10px; font-size: 0.95em; }
+        .calendar-day-header:first-child { color: #e74c3c; }
+        .calendar-day-header:last-child { color: #3498db; }
+        .calendar-day { min-height: 100px; display: flex; flex-direction: column; border-radius: 8px; cursor: pointer; transition: all 0.2s; background: #f8f9fa; font-size: 0.9em; overflow: hidden; }
+        .calendar-day:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.15); transform: translateY(-2px); }
+        .calendar-day.empty { background: transparent; cursor: default; min-height: auto; }
+        .calendar-day.empty:hover { box-shadow: none; transform: none; }
+        .calendar-day.has-data { background: #e8f5e9; }
+        .calendar-day.selected { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+        .day-header { display: flex; justify-content: space-between; align-items: center; padding: 5px 8px; background: rgba(0,0,0,0.05); }
+        .calendar-day.selected .day-header { background: rgba(255,255,255,0.2); }
+        .day-number { font-weight: bold; font-size: 1.1em; }
+        .day-number.sunday { color: #e74c3c; }
+        .day-number.saturday { color: #3498db; }
+        .calendar-day.selected .day-number { color: white; }
+        .driver-count { font-size: 0.75em; background: #667eea; color: white; padding: 2px 6px; border-radius: 10px; }
+        .calendar-day.selected .driver-count { background: rgba(255,255,255,0.3); }
+        .day-content { flex: 1; padding: 5px; overflow-y: auto; font-size: 0.8em; }
+        .driver-info { display: flex; justify-content: space-between; padding: 3px 5px; margin: 2px 0; background: rgba(255,255,255,0.7); border-radius: 4px; white-space: nowrap; }
+        .calendar-day.selected .driver-info { background: rgba(255,255,255,0.2); }
+        .select-buttons { display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap; }
+        .select-btn { padding: 8px 15px; border: 2px solid #667eea; background: white; color: #667eea; border-radius: 6px; cursor: pointer; font-weight: bold; transition: all 0.3s; }
+        .select-btn:hover { background: #f0f3ff; }
+        .select-btn.active { background: #667eea; color: white; }
+        .tab-container { display: flex; margin-bottom: 20px; border-bottom: 2px solid #ddd; }
+        .tab-btn { flex: 1; padding: 12px 20px; background: #f5f5f5; border: none; cursor: pointer; font-size: 1em; font-weight: bold; color: #666; transition: all 0.3s; }
+        .tab-btn:first-child { border-radius: 8px 0 0 0; }
+        .tab-btn:last-child { border-radius: 0 8px 0 0; }
+        .tab-btn.active { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+        .tab-btn:hover:not(.active) { background: #e8ecff; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .result-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 11pt; }
+        .result-table th { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 12px; text-align: center; font-size: 10pt; }
+        .result-table td { padding: 10px; text-align: center; border-bottom: 1px solid #eee; }
+        .result-table tr:hover { background: #f8f9ff; }
+        .date-header, .driver-header { background: #e8ecff !important; font-weight: bold; color: #333; }
+        .download-btn { display: inline-block; padding: 12px 25px; background: #28a745; color: white; text-decoration: none; border-radius: 8px; font-weight: bold; transition: background 0.3s; margin: 5px; }
+        .download-btn:hover { background: #218838; }
+        .loading { display: none; text-align: center; padding: 20px; }
+        .spinner { width: 40px; height: 40px; border: 4px solid #f3f3f3; border-top: 4px solid #667eea; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 10px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .error { background: #ffe6e6; color: #d63031; padding: 15px; border-radius: 8px; margin-top: 15px; }
+        .download-section { text-align: center; margin-top: 20px; }
+        .no-data { text-align: center; padding: 40px; color: #666; font-size: 1.1em; }
+        .selected-period { background: #e8ecff; padding: 10px 15px; border-radius: 8px; margin-bottom: 15px; font-weight: bold; color: #333; text-align: center; font-size: 1.1em; }
+        .upload-group { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+        .upload-box { border: 2px solid #ddd; border-radius: 12px; padding: 20px; text-align: center; }
+        .upload-box h3 { color: #333; margin-bottom: 15px; font-size: 1.1em; }
+        .upload-box .upload-area { padding: 25px; margin-bottom: 0; }
+        .table-wrapper { overflow-x: auto; margin-top: 20px; }
+        .compare-table { width: 100%; border-collapse: collapse; font-size: 11pt; }
+        .compare-table th { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 4px 3px; text-align: center; font-size: 10pt; }
+        .compare-table th.transport-header { background: #28a745; }
+        .compare-table th.schedule-header { background: #17a2b8; }
+        .compare-table th.attendance-header { background: #fd7e14; }
+        .compare-table th.am-header { background: #17a2b8; }
+        .compare-table th.pm-header { background: #fd7e14; }
+        .compare-table td { padding: 3px 2px; text-align: center; border-bottom: 1px solid #eee; }
+        .compare-table tr:hover { background: #f8f9ff; }
+        .compare-table .date-row { background: #e8ecff; font-weight: bold; }
+        .compare-table .employee-row { background: #fff3e0; font-weight: bold; }
+        .compare-table .sub-row { background: #f8f9fa; }
+        .schedule-time { color: #17a2b8; }
+        .attendance-time { color: #fd7e14; }
+        .work-type-badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 0.8em; font-weight: bold; }
+        .work-type-badge.regular { background: #d4edda; color: #155724; }
+        .work-type-badge.holiday { background: #fff3cd; color: #856404; }
+        .work-type-badge.leave { background: #cce5ff; color: #004085; }
+        .work-type-badge.sick { background: #f8d7da; color: #721c24; }
+        .no-transport { color: #999; font-style: italic; }
+        .has-transport { color: #28a745; font-weight: bold; }
+        .match-same { color: #28a745; font-weight: bold; }
+        .match-diff { color: #dc3545; font-weight: bold; background: #ffe6e6; }
+        .match-na { color: #999; font-style: italic; }
+        .row-diff { background: #ffe6e6 !important; }
+        .row-diff td { background: #ffe6e6 !important; }
+        .sortable-header { cursor: pointer; user-select: none; position: relative; }
+        .sortable-header:hover { background: rgba(255,255,255,0.3); color: #000000; }
+        .sort-icon { margin-left: 3px; font-size: 0.8em; }
+        .calendar-input { padding: 8px 12px; font-size: 1em; border: none; border-radius: 8px; background: rgba(255,255,255,0.9); color: #333; cursor: pointer; margin-left: 10px; }
+        .legend-box { margin-top: 15px; padding: 15px; background: #f8f9fa; border-radius: 8px; font-size: 0.9em; }
+        .legend-box h4 { margin-bottom: 10px; color: #333; }
+        .legend-item { display: inline-block; margin-right: 20px; margin-bottom: 5px; }
+        .legend-color { display: inline-block; width: 12px; height: 12px; border-radius: 2px; margin-right: 5px; vertical-align: middle; }
+        .legend-color.transport { background: #28a745; }
+        .legend-color.schedule { background: #17a2b8; }
+        .legend-color.attendance { background: #fd7e14; }
+        .info-box { background: #e7f3ff; border: 1px solid #b6d4fe; border-radius: 8px; padding: 15px; margin-bottom: 20px; }
+        .info-box h4 { color: #0d6efd; margin-bottom: 10px; }
+        .info-box p { color: #333; font-size: 0.95em; margin: 5px 0; }
+        /* 근무시간 비교 - 간편 달력 */
+        .compact-calendar .calendar-day { min-height:40px; padding:8px 4px; align-items:center; justify-content:center; font-size:14px; font-weight:500; }
+        .compact-calendar .calendar-day.has-data { background:#e8f5e9; cursor:pointer; }
+        .compact-calendar .calendar-day.has-data:hover { background:#c8e6c9; transform:scale(1.05); }
+        .compact-calendar .calendar-day.selected { background:linear-gradient(135deg,#667eea,#764ba2); color:white; font-weight:700; }
+        .compact-calendar .calendar-day.empty { min-height:40px; background:transparent; }
+        .compact-calendar .calendar-day-header { padding:6px; font-size:13px; }
+        @media (max-width: 768px) { .upload-group { grid-template-columns: 1fr; } .compare-table { font-size: 9pt; } }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <h1>🚗 이동서비스 분석 프로그램</h1>
+            <div class="main-tab-container">
+                <button class="main-tab-btn active" onclick="showMainTab('analysis')">📊 이동서비스 분석</button>
+                <button class="main-tab-btn" onclick="showMainTab('compare')">⚖️ 근무시간 비교</button>
+                <button class="main-tab-btn" onclick="showMainTab('schedule')">🚌 송영시간표 비교</button>
+            </div>
+            
+            <!-- 이동서비스 분석 탭 -->
+            <div id="analysisTab" class="main-tab-content active">
+                <div class="upload-area" id="uploadArea" onclick="document.getElementById('fileInput').click()">
+                    <div class="upload-icon">📁</div>
+                    <div class="upload-text">이동서비스 목록 엑셀 파일을 드래그하거나 클릭하여 업로드하세요</div>
+                    <div class="file-name" id="fileName"></div>
+                </div>
+                <input type="file" id="fileInput" accept=".xlsx,.xls" onchange="handleFile(this)">
+                <button class="analyze-btn" id="analyzeBtn" onclick="analyze()" disabled>📊 분석 시작</button>
+            </div>
+            
+            <!-- 근무시간 비교 탭 -->
+            <div id="compareTab" class="main-tab-content">
+                <div class="upload-group">
+                    <div class="upload-box">
+                        <h3>📋 이동서비스 목록 파일</h3>
+                        <div class="upload-area" id="uploadArea1" onclick="document.getElementById('fileInput1').click()">
+                            <div class="upload-icon">🚗</div>
+                            <div class="upload-text">이동서비스 목록 파일</div>
+                            <div class="file-name" id="fileName1"></div>
+                        </div>
+                        <input type="file" id="fileInput1" accept=".xlsx,.xls" onchange="handleCompareFile(1, this)">
+                    </div>
+                    <div class="upload-box">
+                        <h3>📋 출퇴근 근무표 파일</h3>
+                        <div class="upload-area" id="uploadArea2" onclick="document.getElementById('fileInput2').click()">
+                            <div class="upload-icon">🕐</div>
+                            <div class="upload-text">출퇴근 근무표 파일</div>
+                            <div class="file-name" id="fileName2"></div>
+                        </div>
+                        <input type="file" id="fileInput2" accept=".xlsx,.xls" onchange="handleCompareFile(2, this)">
+                    </div>
+                </div>
+                <button class="analyze-btn" id="compareBtn" onclick="compareFiles()" disabled>⚖️ 비교 분석 시작</button>
+            </div>
+            
+            <!-- 송영시간표 비교 탭 -->
+            <div id="scheduleTab" class="main-tab-content">
+                <div class="info-box">
+                    <h4>📌 송영시간표 비교 안내</h4>
+                    <p>• 이동서비스 시작 도착시간 → 송영시간표 <strong>오전</strong> 시간과 비교</p>
+                    <p>• 이동서비스 종료 도착시간 → 송영시간표 <strong>오후</strong> 시간과 비교</p>
+                    <p>• 수급자명과 시간이 모두 일치하면 <span class="match-same">✓ 같음</span>, 다르면 <span class="match-diff">✗ 다름</span></p>
+                </div>
+                
+                <!-- 차량명 목록 파일 업로드 (선택사항) -->
+                <!-- 3개 파일 업로드 한 행 배치 -->
+                <div class="upload-group" style="display: flex; gap: 10px; flex-wrap: wrap;">
+                    <div class="upload-box" style="flex: 1; min-width: 180px; background: #fff8e1;">
+                        <h3 style="font-size: 0.9em;">🚙 차량목록 (선택)</h3>
+                        <div class="upload-area" id="dropAreaCarList" onclick="document.getElementById('fileInputCarList').click()" style="border-color: #ffc107; padding: 10px;">
+                            <div class="upload-icon" style="font-size: 1.5em;">🚙</div>
+                            <div class="upload-text" style="font-size: 0.8em;">차량명 목록</div>
+                            <div class="file-name" id="fileNameCarList" style="font-size: 0.75em;"></div>
+                        </div>
+                        <input type="file" id="fileInputCarList" accept=".xlsx,.xls" onchange="handleCarListFile(this)">
+                        <button onclick="clearCarListFile()" style="margin-top:5px; padding:3px 8px; font-size:0.75em; background:#dc3545; color:white; border:none; border-radius:4px; cursor:pointer;">✕ 초기화</button>
+                    </div>
+                    <div class="upload-box" style="flex: 1; min-width: 180px;">
+                        <h3 style="font-size: 0.9em;">📋 송영시간표 (구글)</h3>
+                        <div class="upload-area" id="uploadAreaS1" onclick="document.getElementById('fileInputS1').click()" style="padding: 10px;">
+                            <div class="upload-icon" style="font-size: 1.5em;">🚌</div>
+                            <div class="upload-text" style="font-size: 0.8em;">송영시간표 파일</div>
+                            <div class="file-name" id="fileNameS1" style="font-size: 0.75em;"></div>
+                        </div>
+                        <input type="file" id="fileInputS1" accept=".xlsx,.xls" onchange="handleScheduleFile(1, this)">
+                    </div>
+                    <div class="upload-box" style="flex: 1; min-width: 180px;">
+                        <h3 style="font-size: 0.9em;">📋 이동서비스 (케어포)</h3>
+                        <div class="upload-area" id="uploadAreaS2" onclick="document.getElementById('fileInputS2').click()" style="padding: 10px;">
+                            <div class="upload-icon" style="font-size: 1.5em;">🚗</div>
+                            <div class="upload-text" style="font-size: 0.8em;">이동서비스 파일</div>
+                            <div class="file-name" id="fileNameS2" style="font-size: 0.75em;"></div>
+                        </div>
+                        <input type="file" id="fileInputS2" accept=".xlsx,.xls" onchange="handleScheduleFile(2, this)">
+                    </div>
+                </div>
+                <button class="analyze-btn" id="scheduleBtn" onclick="compareSchedule()" disabled>🚌 송영시간표 비교 시작</button>
+            </div>
+            
+            <div class="loading" id="loading"><div class="spinner"></div><div>분석 중...</div></div>
+            <div class="error" id="error" style="display:none"></div>
+        </div>
+        
+        <!-- 이동서비스 분석 결과 -->
+        <div class="card" id="calendarCard" style="display:none">
+            <div class="calendar-section">
+                <div class="month-navigator">
+                    <button class="nav-arrow" id="prevMonthBtn" onclick="navigateMonth(-1)">◀</button>
+                    <div class="month-selector">
+                        <select class="month-dropdown" id="yearSelect" onchange="onDropdownChange()"></select>
+                        <span class="month-label">년</span>
+                        <select class="month-dropdown" id="monthSelect" onchange="onDropdownChange()"></select>
+                        <span class="month-label">월</span>
+                    </div>
+                    <button class="nav-arrow" id="nextMonthBtn" onclick="navigateMonth(1)">▶</button>
+                </div>
+                <div class="select-buttons">
+                    <button class="select-btn" id="selectAllBtn" onclick="selectAll()">📋 전체 기간 보기</button>
+                    <button class="select-btn active" id="selectMonthBtn" onclick="selectCurrentMonth()">📅 이번 달 전체</button>
+                    <button class="select-btn" id="clearBtn" onclick="clearSelection()">🔄 선택 해제</button>
+                </div>
+                <div class="calendar-grid" id="calendarGrid"></div>
+            </div>
+            <div class="selected-period" id="selectedPeriod">선택된 기간: 전체</div>
+            <div class="tab-container">
+                <button class="tab-btn active" onclick="showTab('byDate')">📅 일자별 보기</button>
+                <button class="tab-btn" onclick="showTab('byDriver')">🧑‍✈️ 운전자별 보기</button>
+            </div>
+            <div id="byDateTab" class="tab-content active"><div id="byDateContent"></div></div>
+            <div id="byDriverTab" class="tab-content"><div id="byDriverContent"></div></div>
+            <div class="download-section">
+                <a href="#" class="download-btn" onclick="downloadExcel('date')">📥 일자별 엑셀 다운로드</a>
+                <a href="#" class="download-btn" onclick="downloadExcel('driver')">📥 운전자별 엑셀 다운로드</a>
+            </div>
+        </div>
+        
+        <!-- 근무시간 비교 결과 -->
+        <div class="card" id="compareResultCard" style="display:none">
+            <h2 style="color: #333; margin-bottom: 20px; text-align: center;">⚖️ 이동서비스 vs 근무일정 vs 출퇴근 비교</h2>
+            <div class="month-navigator">
+                <button class="nav-arrow" id="prevCompareMonthBtn" onclick="navigateCompareMonth(-1)">◀</button>
+                <div class="month-selector">
+                    <select class="month-dropdown" id="compareYearSelect" onchange="onCompareDropdownChange()"></select>
+                    <span class="month-label">년</span>
+                    <select class="month-dropdown" id="compareMonthSelect" onchange="onCompareDropdownChange()"></select>
+                    <span class="month-label">월</span>
+                </div>
+                <button class="nav-arrow" id="nextCompareMonthBtn" onclick="navigateCompareMonth(1)">▶</button>
+            </div>
+            <div class="tab-container" id="compareTabContainer">
+                <button class="tab-btn active" onclick="showCompareTab('byDate')">📅 일자별 보기</button>
+                <button class="tab-btn" onclick="showCompareTab('byEmployee')">👤 직원별 보기</button>
+                <button class="tab-btn" onclick="showCompareTab('byCalendar')">📆 달력 선택</button>
+            </div>
+            <div id="compareByDateTab" class="tab-content active"><div class="table-wrapper"><div id="compareByDateContent"></div></div></div>
+            <div id="compareByEmployeeTab" class="tab-content"><div class="table-wrapper"><div id="compareByEmployeeContent"></div></div></div>
+            <div id="compareByCalendarTab" class="tab-content">
+                <div id="compareCalendarArea" style="margin-bottom:16px;">
+                    <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;">
+                        <button class="tab-btn" id="compareCalSelectAll" onclick="compareCalToggleAll()" style="font-size:12px;padding:6px 14px;">전체 선택</button>
+                        <button class="tab-btn" id="compareCalSelectNone" onclick="compareCalClearAll()" style="font-size:12px;padding:6px 14px;">전체 해제</button>
+                        <span style="font-size:12px;color:#636e72;" id="compareCalSelectedInfo">0일 선택됨</span>
+                    </div>
+                    <div id="compareCalendarGrid" class="calendar-grid compact-calendar" style="margin-bottom:16px;"></div>
+                </div>
+                <div class="table-wrapper"><div id="compareByCalendarContent"></div></div>
+                <div id="compareCalDownloadArea" style="display:none;text-align:center;margin-top:12px;">
+                    <a href="#" class="download-btn" onclick="downloadCompareCalendarExcel()">📥 선택 일자 엑셀 다운로드</a>
+                </div>
+            </div>
+            <div class="legend-box">
+                <h4>📖 범례</h4>
+                <div class="legend-item"><span class="legend-color transport"></span> 이동서비스</div>
+                <div class="legend-item"><span class="legend-color schedule"></span> 근무일정</div>
+                <div class="legend-item"><span class="legend-color attendance"></span> 실제 출퇴근</div>
+            </div>
+            <div class="download-section">
+                <a href="#" class="download-btn" onclick="downloadCompareExcel('date')">📥 일자별 엑셀 다운로드</a>
+                <a href="#" class="download-btn" onclick="downloadCompareExcel('employee')">📥 직원별 엑셀 다운로드</a>
+            </div>
+        </div>
+        
+        <!-- 송영시간표 비교 결과 -->
+        <div class="card" id="scheduleResultCard" style="display:none">
+            <h2 style="color: #333; margin-bottom: 20px; text-align: center;">🚌 이동서비스 vs 송영시간표 비교</h2>
+            
+            <!-- 필터 탭 -->
+            <div class="tab-container" id="scheduleFilterContainer">
+                <button class="tab-btn active" onclick="setScheduleFilter('all')">📋 전체 보기</button>
+                <button class="tab-btn" onclick="setScheduleFilter('diff')">❌ 다름만 보기</button>
+                <button class="tab-btn" onclick="setScheduleFilter('diffDays')">📅 다름있는 날만</button>
+            </div>
+            
+            <!-- 정렬 옵션 -->
+            <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 10px; padding: 8px; background: #f8f9fa; border-radius: 8px; flex-wrap: wrap; font-size: 0.9em;">
+                <div style="display: flex; align-items: center; gap: 5px;">
+                    <span style="font-weight: bold; color: #17a2b8;">🌅 오전:</span>
+                    <select class="month-dropdown" id="scheduleAmSortSelect" onchange="onScheduleSortChange('am')" style="padding: 4px 8px; font-size: 0.9em;">
+                        <option value="default">기본</option>
+                        <option value="seq">순번순</option>
+                        <option value="name">이름순</option>
+                    </select>
+                </div>
+                <div style="display: flex; align-items: center; gap: 5px;">
+                    <span style="font-weight: bold; color: #fd7e14;">🌆 오후:</span>
+                    <select class="month-dropdown" id="schedulePmSortSelect" onchange="onScheduleSortChange('pm')" style="padding: 4px 8px; font-size: 0.9em;">
+                        <option value="default">기본</option>
+                        <option value="seq">순번순</option>
+                        <option value="name">이름순</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="month-navigator" id="scheduleDateNavigator">
+                <button class="nav-arrow" id="prevScheduleDateBtn" onclick="navigateScheduleDate(-1)">◀</button>
+                <div class="month-selector">
+                    <select class="month-dropdown" id="scheduleDateSelect" onchange="onScheduleDateChange()"></select>
+                </div>
+                <button class="nav-arrow" id="nextScheduleDateBtn" onclick="navigateScheduleDate(1)">▶</button>
+            </div>
+            
+            <div class="selected-period" id="scheduleDateInfo"></div>
+            <div class="table-wrapper">
+                <div id="scheduleResultContent" style="overflow-x: auto;"></div>
+            </div>
+            <div class="legend-box">
+                <h4>📖 범례</h4>
+                <div class="legend-item"><span class="match-same">✓</span> 시간 일치</div>
+                <div class="legend-item"><span class="match-diff">✗</span> 시간 불일치 (빨간색으로 표시)</div>
+                <div class="legend-item"><span class="match-na">-</span> 송영시간표에 없음</div>
+            </div>
+            <div class="download-section">
+                <a href="#" class="download-btn" onclick="downloadScheduleExcel()">📥 전체 엑셀 다운로드</a>
+                <a href="#" class="download-btn" style="background:#dc3545;" onclick="downloadScheduleExcel('diff')">📥 다름만 엑셀 다운로드</a>
+            </div>
+        </div>
+    </div>
+    
+
+    <!-- ============================================================
+         Client-side Excel Parsing Functions (replaces Python/Flask)
+         ============================================================ -->
+    <script>
+    /* === 이동서비스 분석 - 엑셀 파싱 === */
+    function readFileAsArrayBuffer(file) {
+        return new Promise(function(resolve, reject) {
+            var reader = new FileReader();
+            reader.onload = function(e) { resolve(e.target.result); };
+            reader.onerror = function() { reject(new Error('파일 읽기 실패')); };
+            reader.readAsArrayBuffer(file);
+        });
+    }
+
+    function extractDriver(info) {
+        if (!info || info === '-' || info === 'nan' || info === 'undefined') return null;
+        var s = String(info);
+        var match = s.match(/\n([가-힣]+)\s*\//);
+        return match ? match[1] : null;
+    }
+
+    function isValidTime(t) {
+        if (!t || t === '-' || t === 'nan' || t === 'undefined') return false;
+        return /^\d{2}:\d{2}/.test(String(t));
+    }
+
+    function cellVal(ws, r, c) {
+        var addr = XLSX.utils.encode_cell({r: r, c: c});
+        var cell = ws[addr];
+        if (!cell) return '';
+        // Handle date/time objects
+        if (cell.t === 'd' && cell.v instanceof Date) {
+            var h = String(cell.v.getHours()).padStart(2,'0');
+            var m = String(cell.v.getMinutes()).padStart(2,'0');
+            return h + ':' + m;
+        }
+        if (cell.t === 'n' && cell.v < 1 && cell.v > 0) {
+            // Excel time fraction
+            var totalMin = Math.round(cell.v * 24 * 60);
+            var hh = String(Math.floor(totalMin / 60)).padStart(2,'0');
+            var mm = String(totalMin % 60).padStart(2,'0');
+            return hh + ':' + mm;
+        }
+        return cell.w || String(cell.v || '');
+    }
+
+    function analyzeTransportExcel(arrayBuffer) {
+        var wb = XLSX.read(arrayBuffer, {type: 'array', cellDates: true});
+        var results = {};  // {date: {driver: {start_times:[], end_times:[]}}}
+        
+        wb.SheetNames.forEach(function(sheetName) {
+            var ws = wb.Sheets[sheetName];
+            if (!ws || !ws['!ref']) return;
+            var range = XLSX.utils.decode_range(ws['!ref']);
+            
+            // Extract date from first few rows
+            var dateStr = null;
+            for (var r = 0; r <= Math.min(5, range.e.r); r++) {
+                var val = cellVal(ws, r, 0);
+                var dateMatch = val.match(/(\d{4}\.\d{2}\.\d{2})/);
+                if (dateMatch) { dateStr = dateMatch[1]; break; }
+            }
+            if (!dateStr) return;
+            
+            if (!results[dateStr]) results[dateStr] = {};
+            
+            for (var r = 6; r <= range.e.r; r++) {
+                var seq = cellVal(ws, r, 0).trim();
+                if (!seq || !/^\d+$/.test(seq)) continue;
+                
+                var startTime = cellVal(ws, r, 4).trim();
+                var startDriverInfo = cellVal(ws, r, 5).trim();
+                var endTime = cellVal(ws, r, 7).trim();
+                var endDriverInfo = cellVal(ws, r, 8).trim();
+                
+                var startDriver = extractDriver(startDriverInfo);
+                var endDriver = extractDriver(endDriverInfo);
+                
+                if (startDriver && isValidTime(startTime)) {
+                    if (!results[dateStr][startDriver]) results[dateStr][startDriver] = {start_times:[], end_times:[]};
+                    results[dateStr][startDriver].start_times.push(startTime.substring(0,5));
+                }
+                if (endDriver && isValidTime(endTime)) {
+                    if (!results[dateStr][endDriver]) results[dateStr][endDriver] = {start_times:[], end_times:[]};
+                    results[dateStr][endDriver].end_times.push(endTime.substring(0,5));
+                }
+            }
+        });
+        return results;
+    }
+
+    function buildAnalysisResponse(results) {
+        var allDriversSet = new Set();
+        var allDatesArr = Object.keys(results).sort();
+        allDatesArr.forEach(function(d) { Object.keys(results[d]).forEach(function(dr) { allDriversSet.add(dr); }); });
+        var allDrivers = Array.from(allDriversSet).sort();
+        
+        var byDate = [], byDriver = [];
+        allDatesArr.forEach(function(date) {
+            allDrivers.forEach(function(driver) {
+                if (!results[date][driver]) return;
+                var data = results[date][driver];
+                byDate.push({date: date, driver: driver, first_start: data.start_times.length ? data.start_times.sort()[0] : '-', last_end: data.end_times.length ? data.end_times.sort().reverse()[0] : '-'});
+            });
+        });
+        allDrivers.forEach(function(driver) {
+            allDatesArr.forEach(function(date) {
+                if (!results[date][driver]) return;
+                var data = results[date][driver];
+                byDriver.push({driver: driver, date: date, first_start: data.start_times.length ? data.start_times.sort()[0] : '-', last_end: data.end_times.length ? data.end_times.sort().reverse()[0] : '-'});
+            });
+        });
+        return {dates: allDatesArr, by_date: byDate, by_driver: byDriver, _raw: results};
+    }
+
+    /* === 출퇴근 근무표 파싱 === */
+    function splitCellLines(value) {
+        if (!value || value === 'nan' || String(value).trim() === '') return [];
+        return String(value).split('\n').map(function(v) { return v.trim(); }).filter(function(v) { return v; });
+    }
+    
+    function formatBreakTimeValue(val) {
+        if (!val || val === '' || val === 'nan' || val === 'undefined' || val === 'None') return null;
+        var s = String(val).trim();
+        if (!s || s === '-') return null;
+        if (s.indexOf('시간') >= 0 || s.indexOf('분') >= 0) return s;
+        if (s.indexOf(':') >= 0) {
+            var parts = s.split(':');
+            var h = parseInt(parts[0]) || 0;
+            var m = parseInt(parts[1]) || 0;
+            if (h === 0 && m === 0) return null;
+            var result = [];
+            if (h > 0) result.push(h + '시간');
+            if (m > 0) result.push(m + '분');
+            return result.join(' ') || null;
+        }
+        var fv = parseFloat(s);
+        if (!isNaN(fv) && fv >= 0 && fv < 1) {
+            var totalMin = Math.round(fv * 24 * 60);
+            var hh = Math.floor(totalMin / 60);
+            var mm = totalMin % 60;
+            if (hh === 0 && mm === 0) return null;
+            var r = [];
+            if (hh > 0) r.push(hh + '시간');
+            if (mm > 0) r.push(mm + '분');
+            return r.join(' ') || null;
+        }
+        return s;
+    }
+    
+    function splitBreakTimes(ws, r, c) {
+        var cell = ws[XLSX.utils.encode_cell({r: r, c: c})];
+        if (!cell) return [];
+        // Handle multi-line break times
+        var rawVal = cell.v;
+        if (rawVal === undefined || rawVal === null) return [];
+        
+        // If it's a date/time object
+        if (cell.t === 'd' || (rawVal instanceof Date)) {
+            var h = rawVal.getHours ? rawVal.getHours() : 0;
+            var m = rawVal.getMinutes ? rawVal.getMinutes() : 0;
+            if (h === 0 && m === 0) return [];
+            var parts = [];
+            if (h > 0) parts.push(h + '시간');
+            if (m > 0) parts.push(m + '분');
+            return [parts.join(' ')];
+        }
+        
+        // If it's a number (Excel time fraction)
+        if (typeof rawVal === 'number' && rawVal >= 0 && rawVal < 1) {
+            var totalMin = Math.round(rawVal * 24 * 60);
+            var hh = Math.floor(totalMin / 60);
+            var mm = totalMin % 60;
+            if (hh === 0 && mm === 0) return [];
+            var p = [];
+            if (hh > 0) p.push(hh + '시간');
+            if (mm > 0) p.push(mm + '분');
+            return [p.join(' ')];
+        }
+        
+        var s = String(cell.w || cell.v || '').trim();
+        if (!s || s === 'nan') return [];
+        var lines = s.split('\n').map(function(v) { return v.trim(); }).filter(function(v) { return v; });
+        return lines.map(function(line) { return formatBreakTimeValue(line); }).filter(function(v) { return v; });
+    }
+
+    function parseTimeRange(timeStr) {
+        if (!timeStr) return [null, null];
+        var m = String(timeStr).match(/(\d{1,2}:\d{2})\s*[~\-]\s*(\d{1,2}:\d{2})/);
+        return m ? [m[1], m[2]] : [null, null];
+    }
+
+    function parseAttendanceExcel(arrayBuffer) {
+        var wb = XLSX.read(arrayBuffer, {type: 'array', cellDates: true});
+        var attendanceData = {};
+        
+        wb.SheetNames.forEach(function(sheetName) {
+            var ws = wb.Sheets[sheetName];
+            if (!ws || !ws['!ref']) return;
+            var range = XLSX.utils.decode_range(ws['!ref']);
+            
+            var nameVal = cellVal(ws, 4, 2).trim();
+            if (!nameVal || nameVal === 'nan') return;
+            if (!attendanceData[nameVal]) attendanceData[nameVal] = {};
+            
+            var periodStr = cellVal(ws, 1, 0);
+            var yearMatch = periodStr.match(/(\d{4})/);
+            var year = yearMatch ? parseInt(yearMatch[1]) : 2026;
+            
+            var monthCell = cellVal(ws, 6, 0).trim();
+            var monthMatch = monthCell.match(/(\d{2})월/);
+            var month = monthMatch ? parseInt(monthMatch[1]) : 1;
+            
+            for (var r = 8; r <= range.e.r; r++) {
+                var dateCell = cellVal(ws, r, 0).trim();
+                var dayMatch = dateCell.match(/^(\d{2})\s*\(/);
+                if (!dayMatch) continue;
+                var day = parseInt(dayMatch[1]);
+                var dateStr = year + '.' + String(month).padStart(2,'0') + '.' + String(day).padStart(2,'0');
+                
+                var workTypes = splitCellLines(cellVal(ws, r, 1));
+                var scheduleTimes = splitCellLines(cellVal(ws, r, 4));
+                var scheduleWorkHours = splitCellLines(cellVal(ws, r, 5));
+                var scheduleBreaks = splitBreakTimes(ws, r, 7);
+                var actualTimes = splitCellLines(cellVal(ws, r, 9));
+                var actualWorkHours = splitCellLines(cellVal(ws, r, 10));
+                var actualBreaks = splitBreakTimes(ws, r, 12);
+                
+                if (!workTypes.length && !scheduleTimes.length && !actualTimes.length) continue;
+                var maxRows = Math.max(workTypes.length, scheduleTimes.length, actualTimes.length, 1);
+                var rowsData = [];
+                for (var i = 0; i < maxRows; i++) {
+                    var wt = i < workTypes.length ? workTypes[i] : (workTypes.length ? workTypes[0] : null);
+                    var ss = null, se = null;
+                    if (i < scheduleTimes.length) { var p = parseTimeRange(scheduleTimes[i]); ss = p[0]; se = p[1]; }
+                    var swh = i < scheduleWorkHours.length ? scheduleWorkHours[i] : null;
+                    var sb = i < scheduleBreaks.length ? scheduleBreaks[i] : null;
+                    var as2 = null, ae = null;
+                    if (i < actualTimes.length) { var p2 = parseTimeRange(actualTimes[i]); as2 = p2[0]; ae = p2[1]; }
+                    var awh = i < actualWorkHours.length ? actualWorkHours[i] : null;
+                    var ab = i < actualBreaks.length ? actualBreaks[i] : null;
+                    rowsData.push({work_type: wt, schedule_start: ss, schedule_end: se, schedule_work_hours: swh, schedule_break: sb, start: as2, end: ae, attendance_work_hours: awh, attendance_break: ab});
+                }
+                attendanceData[nameVal][dateStr] = rowsData;
+            }
+        });
+        return attendanceData;
+    }
+
+    function buildCompareResponse(transportResults, attendanceData) {
+        var allDatesSet = new Set(Object.keys(transportResults));
+        for (var emp in attendanceData) { for (var d in attendanceData[emp]) { allDatesSet.add(d); } }
+        var allDates = Array.from(allDatesSet).sort();
+        var allEmployeesSet = new Set(Object.keys(attendanceData));
+        allDates.forEach(function(date) { if (transportResults[date]) { Object.keys(transportResults[date]).forEach(function(d) { allEmployeesSet.add(d); }); } });
+        var allEmployees = Array.from(allEmployeesSet).sort();
+        
+        var byDateList = [], byEmployeeList = [];
+        
+        function buildItems(list, primaryKey, secondaryKey, getPrimary, getSecondary) {
+            var primaryList = primaryKey === 'date' ? allDates : allEmployees;
+            var secondaryList = secondaryKey === 'employee' ? allEmployees : allDates;
+            
+            primaryList.forEach(function(pk) {
+                secondaryList.forEach(function(sk) {
+                    var date = primaryKey === 'date' ? pk : sk;
+                    var employee = primaryKey === 'date' ? sk : pk;
+                    var transportStart = null, transportEnd = null;
+                    if (transportResults[date] && transportResults[date][employee]) {
+                        var td = transportResults[date][employee];
+                        transportStart = td.start_times.length ? td.start_times.sort()[0] : null;
+                        transportEnd = td.end_times.length ? td.end_times.sort().reverse()[0] : null;
+                    }
+                    var attRows = (attendanceData[employee] && attendanceData[employee][date]) ? attendanceData[employee][date] : [];
+                    if (!transportStart && !attRows.length) return;
+                    
+                    if (attRows.length) {
+                        var totalRows = attRows.length;
+                        attRows.forEach(function(att, i) {
+                            list.push({date: date, employee: employee, row_index: i, total_rows: totalRows, work_type: att.work_type || '-', transport_start: (i === 0 ? (transportStart || '-') : '-'), transport_end: (i === 0 ? (transportEnd || '-') : '-'), schedule_start: att.schedule_start || '-', schedule_end: att.schedule_end || '-', schedule_work_hours: att.schedule_work_hours || '-', schedule_break: att.schedule_break || '-', attendance_start: att.start || '-', attendance_end: att.end || '-', attendance_work_hours: att.attendance_work_hours || '-', attendance_break: att.attendance_break || '-'});
+                        });
+                    } else {
+                        list.push({date: date, employee: employee, row_index: 0, total_rows: 1, work_type: '-', transport_start: transportStart || '-', transport_end: transportEnd || '-', schedule_start: '-', schedule_end: '-', schedule_work_hours: '-', schedule_break: '-', attendance_start: '-', attendance_end: '-', attendance_work_hours: '-', attendance_break: '-'});
+                    }
+                });
+            });
+        }
+        
+        buildItems(byDateList, 'date', 'employee');
+        buildItems(byEmployeeList, 'employee', 'date');
+        return {by_date: byDateList, by_employee: byEmployeeList};
+    }
+
+    /* === 차량목록 파싱 === */
+    function parseCarListExcel(arrayBuffer) {
+        var wb = XLSX.read(arrayBuffer, {type: 'array'});
+        var ws = wb.Sheets[wb.SheetNames[0]];
+        if (!ws || !ws['!ref']) return null;
+        var range = XLSX.utils.decode_range(ws['!ref']);
+        var carList = [], carNumbers = {};
+        for (var r = 0; r <= range.e.r; r++) {
+            var name = cellVal(ws, r, 0).trim();
+            if (name && name !== 'nan') {
+                carList.push(name);
+                var num = cellVal(ws, r, 1).trim();
+                if (num && num !== 'nan') carNumbers[name] = num;
+            }
+        }
+        return carList.length ? {list: carList, numbers: carNumbers} : null;
+    }
+
+    /* === 송영시간표 파싱 === */
+    function parseScheduleExcel(arrayBuffer, validCarList) {
+        var wb = XLSX.read(arrayBuffer, {type: 'array', cellDates: true});
+        var carList = null, carNumbers = {};
+        if (validCarList) { carList = validCarList.list || []; carNumbers = validCarList.numbers || {}; }
+        var scheduleData = {};
+        
+        wb.SheetNames.forEach(function(sheetName) {
+            var dateMatch = sheetName.match(/(\d{4})/);
+            if (!dateMatch) return;
+            var sheetDate = dateMatch[1];
+            var ws = wb.Sheets[sheetName];
+            if (!ws || !ws['!ref']) return;
+            var range = XLSX.utils.decode_range(ws['!ref']);
+            
+            var amBySeq = {}, pmBySeq = {};
+            var currentAmSeq = '', currentPmSeq = '';
+            
+            for (var r = 2; r <= range.e.r; r++) {
+                // AM data
+                var amSeqRaw = cellVal(ws, r, 0);
+                var amBeneficiary = cellVal(ws, r, 1).trim();
+                var amTimeRaw = cellVal(ws, r, 2);
+                var amCar = cellVal(ws, r, 3).trim();
+                var amDriver = cellVal(ws, r, 4).trim();
+                
+                if (amSeqRaw && String(amSeqRaw).trim()) {
+                    var sv = parseFloat(amSeqRaw);
+                    currentAmSeq = !isNaN(sv) ? String(Math.round(sv)) : String(amSeqRaw);
+                }
+                
+                if (amBeneficiary && amBeneficiary !== 'nan' && currentAmSeq) {
+                    var amTimeStr = '';
+                    if (amTimeRaw instanceof Date) { amTimeStr = String(amTimeRaw.getHours()).padStart(2,'0') + ':' + String(amTimeRaw.getMinutes()).padStart(2,'0'); }
+                    else if (typeof amTimeRaw === 'number' && amTimeRaw > 0 && amTimeRaw < 1) { var tm = Math.round(amTimeRaw*24*60); amTimeStr = String(Math.floor(tm/60)).padStart(2,'0')+':'+String(tm%60).padStart(2,'0'); }
+                    else if (String(amTimeRaw).indexOf(':') >= 0) { amTimeStr = String(amTimeRaw).substring(0,5); }
+                    else { amTimeStr = String(amTimeRaw || '').substring(0,5); }
+                    
+                    if (amTimeStr) {
+                        if (!amBySeq[currentAmSeq]) amBySeq[currentAmSeq] = [];
+                        amBySeq[currentAmSeq].push({beneficiary: amBeneficiary, time: amTimeStr, car: (amCar !== 'nan' ? amCar : ''), driver: (amDriver !== 'nan' ? amDriver : '')});
+                    }
+                }
+                
+                // PM data (columns 7-11)
+                var pmSeqRaw = cellVal(ws, r, 7);
+                var pmBeneficiary = cellVal(ws, r, 8).trim();
+                var pmTimeRaw = cellVal(ws, r, 9);
+                var pmCar = cellVal(ws, r, 10).trim();
+                var pmDriver = cellVal(ws, r, 11).trim();
+                
+                if (pmSeqRaw && String(pmSeqRaw).trim()) {
+                    var sv2 = parseFloat(pmSeqRaw);
+                    currentPmSeq = !isNaN(sv2) ? String(Math.round(sv2)) : String(pmSeqRaw);
+                }
+                
+                if (pmBeneficiary && pmBeneficiary !== 'nan' && currentPmSeq) {
+                    var pmTimeStr = '';
+                    if (pmTimeRaw instanceof Date) { pmTimeStr = String(pmTimeRaw.getHours()).padStart(2,'0') + ':' + String(pmTimeRaw.getMinutes()).padStart(2,'0'); }
+                    else if (typeof pmTimeRaw === 'number' && pmTimeRaw > 0 && pmTimeRaw < 1) { var tm2 = Math.round(pmTimeRaw*24*60); pmTimeStr = String(Math.floor(tm2/60)).padStart(2,'0')+':'+String(tm2%60).padStart(2,'0'); }
+                    else if (String(pmTimeRaw).indexOf(':') >= 0) { pmTimeStr = String(pmTimeRaw).substring(0,5); }
+                    else { pmTimeStr = String(pmTimeRaw || '').substring(0,5); }
+                    
+                    if (pmTimeStr) {
+                        if (!pmBySeq[currentPmSeq]) pmBySeq[currentPmSeq] = [];
+                        pmBySeq[currentPmSeq].push({beneficiary: pmBeneficiary, time: pmTimeStr, car: (pmCar !== 'nan' ? pmCar : ''), driver: (pmDriver !== 'nan' ? pmDriver : '')});
+                    }
+                }
+            }
+            
+            function processSeqGroup(seqData) {
+                var result = {};
+                for (var seq in seqData) {
+                    var items = seqData[seq];
+                    var validCar = '', carDriver = '';
+                    for (var k = 0; k < items.length; k++) {
+                        if (items[k].car) {
+                            if (carList) { if (carList.indexOf(items[k].car) >= 0) { validCar = items[k].car; carDriver = items[k].driver; break; } }
+                            else { validCar = items[k].car; carDriver = items[k].driver; break; }
+                        }
+                    }
+                    items.forEach(function(item) {
+                        var carToUse = item.car, driverToUse = item.driver;
+                        if (carList) {
+                            if (carToUse && carList.indexOf(carToUse) < 0) { carToUse = validCar; driverToUse = carDriver; }
+                            else if (!carToUse) { carToUse = validCar; driverToUse = carDriver; }
+                        } else {
+                            if (!carToUse) { carToUse = validCar; driverToUse = carDriver; }
+                        }
+                        var carNumber = carToUse ? (carNumbers[carToUse] || '') : '';
+                        result[item.beneficiary] = {time: item.time, seq: seq, car: carToUse || '', driver: driverToUse || '', car_number: carNumber};
+                    });
+                }
+                return result;
+            }
+            
+            scheduleData[sheetDate] = {am: processSeqGroup(amBySeq), pm: processSeqGroup(pmBySeq)};
+        });
+        return scheduleData;
+    }
+
+    /* === 이동서비스 파일 - 송영시간표 비교용 파싱 === */
+    function parseTransportForSchedule(arrayBuffer) {
+        var wb = XLSX.read(arrayBuffer, {type: 'array', cellDates: true});
+        var allTransportData = {};
+        var weekdays = ['일', '월', '화', '수', '목', '금', '토'];
+        
+        wb.SheetNames.forEach(function(sheetName) {
+            var ws = wb.Sheets[sheetName];
+            if (!ws || !ws['!ref']) return;
+            var range = XLSX.utils.decode_range(ws['!ref']);
+            
+            var dateInfo = range.e.r >= 1 ? cellVal(ws, 1, 0) : '';
+            var dateMatch = dateInfo.match(/(\d{4})\.(\d{2})\.(\d{2})/);
+            if (!dateMatch) return;
+            
+            var year = dateMatch[1], month = dateMatch[2], day = dateMatch[3];
+            var dateKey = year + '.' + month + '.' + day;
+            var d = new Date(parseInt(year), parseInt(month)-1, parseInt(day));
+            var weekday = weekdays[d.getDay()];
+            var dateDisplay = year + '년 ' + month + '월 ' + day + '일(' + weekday + ')';
+            
+            var transportData = [];
+            for (var r = 6; r <= range.e.r; r++) {
+                var seq = cellVal(ws, r, 0).trim();
+                if (!seq || !/^\d+$/.test(seq)) continue;
+                var beneficiary = cellVal(ws, r, 1).trim();
+                var startTime = cellVal(ws, r, 4).trim();
+                var endTime = cellVal(ws, r, 7).trim();
+                if (beneficiary && beneficiary !== 'nan') {
+                    transportData.push({beneficiary: beneficiary, start_time: (startTime !== 'nan' ? startTime : ''), end_time: (endTime !== 'nan' ? endTime : '')});
+                }
+            }
+            if (transportData.length) {
+                allTransportData[dateKey] = {date_display: dateDisplay, data: transportData};
+            }
+        });
+        return allTransportData;
+    }
+
+    function buildScheduleCompareResponse(scheduleData, allTransportData) {
+        var allResults = {};
+        var dateList = [];
+        var dateKeys = Object.keys(allTransportData).sort();
+        
+        dateKeys.forEach(function(dateKey) {
+            var transportInfo = allTransportData[dateKey];
+            var dateDisplay = transportInfo.date_display;
+            var parts = dateKey.split('.');
+            var scheduleKey = parts.length >= 3 ? parts[1] + parts[2] : dateKey;
+            
+            var amSchedule = {}, pmSchedule = {};
+            if (scheduleData[scheduleKey]) {
+                amSchedule = scheduleData[scheduleKey].am || {};
+                pmSchedule = scheduleData[scheduleKey].pm || {};
+            }
+            
+            var results = [];
+            transportInfo.data.forEach(function(item) {
+                var beneficiary = item.beneficiary;
+                var transportStart = item.start_time;
+                var transportEnd = item.end_time;
+                
+                var amInfo = amSchedule[beneficiary] || {};
+                var schedAm = amInfo.time || '';
+                var amSeq = amInfo.seq || '';
+                var amCar = amInfo.car || '';
+                var amDriver = amInfo.driver || '';
+                var amCarNumber = amInfo.car_number || '';
+                
+                var pmInfo = pmSchedule[beneficiary] || {};
+                var schedPm = pmInfo.time || '';
+                var pmSeq = pmInfo.seq || '';
+                var pmCar = pmInfo.car || '';
+                var pmDriver = pmInfo.driver || '';
+                var pmCarNumber = pmInfo.car_number || '';
+                
+                var amMatch = '없음', pmMatch = '없음';
+                if (transportStart && schedAm) amMatch = transportStart === schedAm ? '같음' : '다름';
+                else if (transportStart && !schedAm) amMatch = '없음';
+                else if (!transportStart && schedAm) amMatch = '다름';
+                
+                if (transportEnd && schedPm) pmMatch = transportEnd === schedPm ? '같음' : '다름';
+                else if (transportEnd && !schedPm) pmMatch = '없음';
+                else if (!transportEnd && schedPm) pmMatch = '다름';
+                
+                results.push({beneficiary: beneficiary, transport_start: transportStart, schedule_am: schedAm, am_seq: amSeq, am_car: amCar, am_car_number: amCarNumber, am_driver: amDriver, am_match: amMatch, transport_end: transportEnd, schedule_pm: schedPm, pm_seq: pmSeq, pm_car: pmCar, pm_car_number: pmCarNumber, pm_driver: pmDriver, pm_match: pmMatch});
+            });
+            
+            allResults[dateKey] = {date_display: dateDisplay, results: results};
+            dateList.push({key: dateKey, display: dateDisplay});
+        });
+        
+        return {dates: dateList, results: allResults};
+    }
+
+    /* === 엑셀 다운로드 (SheetJS) === */
+    function downloadExcelFile(data, headers, filename, sheetName) {
+        var ws = XLSX.utils.aoa_to_sheet([headers].concat(data));
+        var wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, sheetName || 'Sheet1');
+        XLSX.writeFile(wb, filename);
+    }
+
+        let selectedFile = null, analysisData = null, allDates = [], selectedDates = new Set();
+        let currentYear = 2026, currentMonth = 1, availableYears = [], availableMonths = {}, availableYearMonths = [], currentYearMonthIndex = 0, dateDataMap = {};
+        let compareFile1 = null, compareFile2 = null, compareData = null, compareYearMonths = [], currentCompareIndex = 0, currentCompareYear = 2026, currentCompareMonth = 1;
+        let scheduleFile1 = null, scheduleFile2 = null, scheduleData = null;
+        let carListFile = null;
+        let scheduleDates = [], currentScheduleDateIndex = 0;
+        let scheduleFilter = 'all'; // 'all', 'diff', 'diffDays'
+        let filteredScheduleDates = [];
+        
+        // 정렬 상태 변수
+        let scheduleSortState = {
+            am: { column: null, direction: 'asc' },
+            pm: { column: null, direction: 'asc' }
+        };
+        
+        function getSortIcon(period, column) {
+            const state = scheduleSortState[period];
+            if (state.column !== column) return '⇅';
+            return state.direction === 'asc' ? '↑' : '↓';
+        }
+        
+        function sortScheduleTable(period, column) {
+            const state = scheduleSortState[period];
+            
+            // 같은 열 클릭시 방향 토글, 다른 열 클릭시 오름차순으로 시작
+            if (state.column === column) {
+                state.direction = state.direction === 'asc' ? 'desc' : 'asc';
+            } else {
+                state.column = column;
+                state.direction = 'asc';
+            }
+            
+            // 기존 정렬 select도 초기화 (custom 정렬 사용중임을 표시)
+            if (period === 'am') {
+                document.getElementById('scheduleAmSortSelect').value = 'default';
+            } else {
+                document.getElementById('schedulePmSortSelect').value = 'default';
+            }
+            
+            updateScheduleResults();
+        }
+        
+        function sortItemsByColumn(items, column, direction, period) {
+            const sorted = [...items];
+            const isAsc = direction === 'asc';
+            
+            // 2차 정렬용 시간 비교 함수 (항상 오름차순)
+            function compareByTime(a, b) {
+                var timeA = period === 'am' ? (a.schedule_am || '99:99') : (a.schedule_pm || '99:99');
+                var timeB = period === 'am' ? (b.schedule_am || '99:99') : (b.schedule_pm || '99:99');
+                return timeA.localeCompare(timeB);
+            }
+            
+            sorted.sort((a, b) => {
+                let valA, valB;
+                let primaryResult = 0;
+                
+                switch(column) {
+                    case 'no':
+                        return compareByTime(a, b); // No는 시간순으로만 정렬
+                    case 'seq':
+                        valA = parseInt(period === 'am' ? a.am_seq : a.pm_seq) || 999;
+                        valB = parseInt(period === 'am' ? b.am_seq : b.pm_seq) || 999;
+                        if (valA !== valB) {
+                            primaryResult = isAsc ? valA - valB : valB - valA;
+                        }
+                        break;
+                    case 'name':
+                        valA = a.beneficiary || '';
+                        valB = b.beneficiary || '';
+                        primaryResult = isAsc ? valA.localeCompare(valB, 'ko') : valB.localeCompare(valA, 'ko');
+                        break;
+                    case 'transport':
+                        valA = period === 'am' ? (a.transport_start || '99:99') : (a.transport_end || '99:99');
+                        valB = period === 'am' ? (b.transport_start || '99:99') : (b.transport_end || '99:99');
+                        primaryResult = isAsc ? valA.localeCompare(valB) : valB.localeCompare(valA);
+                        break;
+                    case 'schedule':
+                        valA = period === 'am' ? (a.schedule_am || '99:99') : (a.schedule_pm || '99:99');
+                        valB = period === 'am' ? (b.schedule_am || '99:99') : (b.schedule_pm || '99:99');
+                        primaryResult = isAsc ? valA.localeCompare(valB) : valB.localeCompare(valA);
+                        break;
+                    case 'car':
+                        valA = period === 'am' ? (a.am_car || '') : (a.pm_car || '');
+                        valB = period === 'am' ? (b.am_car || '') : (b.pm_car || '');
+                        primaryResult = isAsc ? valA.localeCompare(valB, 'ko') : valB.localeCompare(valA, 'ko');
+                        break;
+                    case 'driver':
+                        valA = period === 'am' ? (a.am_driver || '') : (a.pm_driver || '');
+                        valB = period === 'am' ? (b.am_driver || '') : (b.pm_driver || '');
+                        primaryResult = isAsc ? valA.localeCompare(valB, 'ko') : valB.localeCompare(valA, 'ko');
+                        break;
+                    case 'match':
+                        // 다름이 먼저 오도록 (오름차순: 다름 < 같음 < 없음)
+                        const matchOrder = {'다름': 0, '같음': 1, '없음': 2};
+                        valA = matchOrder[period === 'am' ? a.am_match : a.pm_match] ?? 3;
+                        valB = matchOrder[period === 'am' ? b.am_match : b.pm_match] ?? 3;
+                        if (valA !== valB) {
+                            primaryResult = isAsc ? valA - valB : valB - valA;
+                        }
+                        break;
+                    default:
+                        return compareByTime(a, b);
+                }
+                
+                // 1차 정렬 결과가 같으면 2차로 시간순 정렬
+                if (primaryResult !== 0) {
+                    return primaryResult;
+                }
+                return compareByTime(a, b);
+            });
+            
+            return sorted;
+        }
+        
+        function onScheduleSortChange(period) {
+            // 드롭다운 정렬 선택시 해당 period의 헤더 정렬 상태 초기화
+            scheduleSortState[period] = { column: null, direction: 'asc' };
+            updateScheduleResults();
+        }
+
+        function setupDragDrop(areaId, fileInputId, fileNameId, onFileSelect) {
+            const area = document.getElementById(areaId);
+            if (!area) return;
+            area.addEventListener('dragover', (e) => { e.preventDefault(); area.classList.add('dragover'); });
+            area.addEventListener('dragleave', () => { area.classList.remove('dragover'); });
+            area.addEventListener('drop', (e) => {
+                e.preventDefault(); area.classList.remove('dragover');
+                const file = e.dataTransfer.files[0];
+                if (file && (file.name.endsWith('.xlsx') || file.name.endsWith('.xls'))) {
+                    onFileSelect(file); document.getElementById(fileNameId).textContent = file.name; area.classList.add('has-file');
+                }
+            });
+        }
+        setupDragDrop('uploadArea', 'fileInput', 'fileName', (file) => { selectedFile = file; document.getElementById('analyzeBtn').disabled = false; });
+        setupDragDrop('uploadArea1', 'fileInput1', 'fileName1', (file) => { compareFile1 = file; checkCompareReady(); });
+        setupDragDrop('uploadArea2', 'fileInput2', 'fileName2', (file) => { compareFile2 = file; checkCompareReady(); });
+        setupDragDrop('uploadAreaS1', 'fileInputS1', 'fileNameS1', (file) => { scheduleFile1 = file; checkScheduleReady(); });
+        setupDragDrop('uploadAreaS2', 'fileInputS2', 'fileNameS2', (file) => { scheduleFile2 = file; checkScheduleReady(); });
+        setupCarListDragDrop();
+
+        function showMainTab(tabName) {
+            document.querySelectorAll('.main-tab-btn').forEach((btn, idx) => {
+                btn.classList.toggle('active', (tabName === 'analysis' && idx === 0) || (tabName === 'compare' && idx === 1) || (tabName === 'schedule' && idx === 2));
+            });
+            document.getElementById('analysisTab').classList.toggle('active', tabName === 'analysis');
+            document.getElementById('compareTab').classList.toggle('active', tabName === 'compare');
+            document.getElementById('scheduleTab').classList.toggle('active', tabName === 'schedule');
+            document.getElementById('calendarCard').style.display = tabName === 'analysis' && analysisData ? 'block' : 'none';
+            document.getElementById('compareResultCard').style.display = tabName === 'compare' && compareData ? 'block' : 'none';
+            document.getElementById('scheduleResultCard').style.display = tabName === 'schedule' && scheduleData ? 'block' : 'none';
+        }
+        
+        function handleFile(input) { if (input.files[0]) { selectedFile = input.files[0]; document.getElementById('fileName').textContent = selectedFile.name; document.getElementById('analyzeBtn').disabled = false; document.getElementById('uploadArea').classList.add('has-file'); } }
+        function handleCompareFile(num, input) {
+            if (input.files[0]) {
+                if (num === 1) { compareFile1 = input.files[0]; document.getElementById('fileName1').textContent = compareFile1.name; document.getElementById('uploadArea1').classList.add('has-file'); }
+                else { compareFile2 = input.files[0]; document.getElementById('fileName2').textContent = compareFile2.name; document.getElementById('uploadArea2').classList.add('has-file'); }
+                checkCompareReady();
+            }
+        }
+        function handleScheduleFile(num, input) {
+            if (input.files[0]) {
+                if (num === 1) { scheduleFile1 = input.files[0]; document.getElementById('fileNameS1').textContent = scheduleFile1.name; document.getElementById('uploadAreaS1').classList.add('has-file'); }
+                else { scheduleFile2 = input.files[0]; document.getElementById('fileNameS2').textContent = scheduleFile2.name; document.getElementById('uploadAreaS2').classList.add('has-file'); }
+                checkScheduleReady();
+            }
+        }
+        function handleCarListFile(input) {
+            if (input.files && input.files[0]) {
+                carListFile = input.files[0];
+                document.getElementById('fileNameCarList').textContent = carListFile.name;
+                document.getElementById('dropAreaCarList').classList.add('has-file');
+            }
+        }
+        function clearCarListFile() {
+            carListFile = null;
+            document.getElementById('fileNameCarList').textContent = '';
+            document.getElementById('dropAreaCarList').classList.remove('has-file');
+            document.getElementById('fileInputCarList').value = '';
+        }
+        function setupCarListDragDrop() {
+            const area = document.getElementById('dropAreaCarList');
+            if (!area) return;
+            area.addEventListener('dragover', (e) => { e.preventDefault(); area.classList.add('dragover'); });
+            area.addEventListener('dragleave', () => { area.classList.remove('dragover'); });
+            area.addEventListener('drop', (e) => {
+                e.preventDefault(); area.classList.remove('dragover');
+                const file = e.dataTransfer.files[0];
+                if (file && (file.name.endsWith('.xlsx') || file.name.endsWith('.xls'))) {
+                    carListFile = file;
+                    document.getElementById('fileNameCarList').textContent = file.name;
+                    area.classList.add('has-file');
+                }
+            });
+        }
+        function checkCompareReady() { document.getElementById('compareBtn').disabled = !(compareFile1 && compareFile2); }
+        function checkScheduleReady() { document.getElementById('scheduleBtn').disabled = !(scheduleFile1 && scheduleFile2); }
+        
+        function showTab(tabName) {
+            document.querySelectorAll('#calendarCard .tab-btn').forEach((btn, idx) => btn.classList.toggle('active', (tabName === 'byDate' && idx === 0) || (tabName === 'byDriver' && idx === 1)));
+            document.getElementById('byDateTab').classList.toggle('active', tabName === 'byDate');
+            document.getElementById('byDriverTab').classList.toggle('active', tabName === 'byDriver');
+        }
+        function showCompareTab(tabName) {
+            document.querySelectorAll('#compareTabContainer .tab-btn').forEach((btn, idx) => btn.classList.toggle('active', (tabName === 'byDate' && idx === 0) || (tabName === 'byEmployee' && idx === 1) || (tabName === 'byCalendar' && idx === 2)));
+            document.getElementById('compareByDateTab').classList.toggle('active', tabName === 'byDate');
+            document.getElementById('compareByEmployeeTab').classList.toggle('active', tabName === 'byEmployee');
+            document.getElementById('compareByCalendarTab').classList.toggle('active', tabName === 'byCalendar');
+            if (tabName === 'byCalendar' && compareData) { renderCompareCalendar(); }
+        }
+
+        async function analyze() {
+            if (!selectedFile) return;
+            document.getElementById('loading').style.display = 'block'; document.getElementById('calendarCard').style.display = 'none';
+            document.getElementById('error').style.display = 'none'; document.getElementById('analyzeBtn').disabled = true;
+            try {
+                var buf = await readFileAsArrayBuffer(selectedFile);
+                var results = analyzeTransportExcel(buf);
+                if (Object.keys(results).length === 0) { document.getElementById('error').textContent = '분석할 데이터가 없습니다.'; document.getElementById('error').style.display = 'block'; }
+                else { var data = buildAnalysisResponse(results); analysisData = data; allDates = data.dates; buildDateDataMap(); buildAvailableYearMonths(); initDropdowns(); selectCurrentMonth(); document.getElementById('calendarCard').style.display = 'block'; }
+            } catch (err) { document.getElementById('error').textContent = '분석 중 오류: ' + err.message; document.getElementById('error').style.display = 'block'; }
+            document.getElementById('loading').style.display = 'none'; document.getElementById('analyzeBtn').disabled = false;
+        }
+
+        async function compareFiles() {
+            if (!compareFile1 || !compareFile2) return;
+            document.getElementById('loading').style.display = 'block'; document.getElementById('compareResultCard').style.display = 'none';
+            document.getElementById('error').style.display = 'none'; document.getElementById('compareBtn').disabled = true;
+            try {
+                var buf1 = await readFileAsArrayBuffer(compareFile1);
+                var buf2 = await readFileAsArrayBuffer(compareFile2);
+                var transportResults = analyzeTransportExcel(buf1);
+                var attendanceData = parseAttendanceExcel(buf2);
+                var data = buildCompareResponse(transportResults, attendanceData);
+                compareData = data; buildCompareYearMonths(); initCompareDropdowns(); updateCompareResults(); document.getElementById('compareResultCard').style.display = 'block';
+            } catch (err) { document.getElementById('error').textContent = '비교 분석 중 오류: ' + err.message; document.getElementById('error').style.display = 'block'; }
+            document.getElementById('loading').style.display = 'none'; document.getElementById('compareBtn').disabled = false;
+        }
+        
+        async function compareSchedule() {
+            if (!scheduleFile1 || !scheduleFile2) return;
+            document.getElementById('loading').style.display = 'block'; document.getElementById('scheduleResultCard').style.display = 'none';
+            document.getElementById('error').style.display = 'none'; document.getElementById('scheduleBtn').disabled = true;
+            
+            try {
+                var validCarListData = null;
+                if (carListFile) {
+                    var carBuf = await readFileAsArrayBuffer(carListFile);
+                    validCarListData = parseCarListExcel(carBuf);
+                }
+                var schBuf = await readFileAsArrayBuffer(scheduleFile1);
+                var trBuf = await readFileAsArrayBuffer(scheduleFile2);
+                var schedParsed = parseScheduleExcel(schBuf, validCarListData);
+                var trParsed = parseTransportForSchedule(trBuf);
+                var data = buildScheduleCompareResponse(schedParsed, trParsed);
+                
+                scheduleData = data; 
+                scheduleDates = data.dates;
+                currentScheduleDateIndex = 0;
+                scheduleFilter = 'all';
+                document.querySelectorAll('#scheduleFilterContainer .tab-btn').forEach((btn, idx) => {
+                    btn.classList.toggle('active', idx === 0);
+                });
+                document.getElementById('scheduleAmSortSelect').value = 'default';
+                document.getElementById('schedulePmSortSelect').value = 'default';
+                scheduleSortState = {
+                    am: { column: null, direction: 'asc' },
+                    pm: { column: null, direction: 'asc' }
+                };
+                initScheduleDateDropdown();
+                updateScheduleResults(); 
+                document.getElementById('scheduleResultCard').style.display = 'block'; 
+            } catch (err) { document.getElementById('error').textContent = '송영시간표 비교 중 오류: ' + err.message; document.getElementById('error').style.display = 'block'; }
+            document.getElementById('loading').style.display = 'none'; document.getElementById('scheduleBtn').disabled = false;
+        }
+        
+        function initScheduleDateDropdown() {
+            const select = document.getElementById('scheduleDateSelect');
+            select.innerHTML = '';
+            scheduleDates.forEach((date, idx) => {
+                const option = document.createElement('option');
+                option.value = idx;
+                option.textContent = formatDateWithWeekday(date.key);
+                if (idx === currentScheduleDateIndex) option.selected = true;
+                select.appendChild(option);
+            });
+            updateScheduleNavButtons();
+        }
+        
+        function onScheduleDateChange() {
+            currentScheduleDateIndex = parseInt(document.getElementById('scheduleDateSelect').value);
+            updateScheduleNavButtons();
+            updateScheduleResults();
+        }
+        
+        function navigateScheduleDate(direction) {
+            const newIndex = currentScheduleDateIndex + direction;
+            if (newIndex >= 0 && newIndex < scheduleDates.length) {
+                currentScheduleDateIndex = newIndex;
+                document.getElementById('scheduleDateSelect').value = currentScheduleDateIndex;
+                updateScheduleNavButtons();
+                updateScheduleResults();
+            }
+        }
+        
+        function updateScheduleNavButtons() {
+            document.getElementById('prevScheduleDateBtn').disabled = currentScheduleDateIndex <= 0;
+            document.getElementById('nextScheduleDateBtn').disabled = currentScheduleDateIndex >= scheduleDates.length - 1;
+        }
+        
+        function setScheduleFilter(filter) {
+            scheduleFilter = filter;
+            document.querySelectorAll('#scheduleFilterContainer .tab-btn').forEach((btn, idx) => {
+                btn.classList.toggle('active', 
+                    (filter === 'all' && idx === 0) || 
+                    (filter === 'diff' && idx === 1) || 
+                    (filter === 'diffDays' && idx === 2)
+                );
+            });
+            updateScheduleResults();
+        }
+        
+        function hasDiffInDate(dateKey) {
+            const data = scheduleData.results[dateKey];
+            if (!data) return false;
+            return data.results.some(r => r.am_match === '다름' || r.pm_match === '다름');
+        }
+        
+        function getDiffItemsForDate(dateKey) {
+            const data = scheduleData.results[dateKey];
+            if (!data) return [];
+            return data.results.filter(r => r.am_match === '다름' || r.pm_match === '다름');
+        }
+        
+        function sortItems(items, sortType, period) {
+            // 헤더 클릭 정렬이 설정되어 있으면 우선 사용
+            const headerSort = scheduleSortState[period];
+            if (headerSort.column) {
+                return sortItemsByColumn(items, headerSort.column, headerSort.direction, period);
+            }
+            
+            if (sortType === 'default') return items;
+            
+            const sorted = [...items];
+            if (sortType === 'seq') {
+                const seqKey = period === 'am' ? 'am_seq' : 'pm_seq';
+                const timeKey = period === 'am' ? 'schedule_am' : 'schedule_pm';
+                sorted.sort((a, b) => {
+                    const seqA = parseInt(a[seqKey]) || 999;
+                    const seqB = parseInt(b[seqKey]) || 999;
+                    if (seqA !== seqB) return seqA - seqB;
+                    return (a[timeKey] || '99:99').localeCompare(b[timeKey] || '99:99');
+                });
+            } else if (sortType === 'name') {
+                sorted.sort((a, b) => a.beneficiary.localeCompare(b.beneficiary, 'ko'));
+            }
+            return sorted;
+        }
+        
+        function updateScheduleResults() {
+            if (!scheduleDates || scheduleDates.length === 0) return;
+            
+            // 필터에 따라 다른 결과 표시
+            if (scheduleFilter === 'all') {
+                updateScheduleResultsAll();
+            } else if (scheduleFilter === 'diff') {
+                updateScheduleResultsDiffOnly();
+            } else if (scheduleFilter === 'diffDays') {
+                updateScheduleResultsDiffDays();
+            }
+        }
+        
+        function updateScheduleResultsAll() {
+            const currentDate = scheduleDates[currentScheduleDateIndex];
+            const dateKey = currentDate.key;
+            const dateDisplay = currentDate.display;
+            const dateWithWeekday = formatDateWithWeekday(dateKey);
+            const currentResults = scheduleData.results[dateKey];
+            
+            // 날짜 네비게이터 표시
+            document.getElementById('scheduleDateNavigator').style.display = 'flex';
+            
+            if (!currentResults) {
+                document.getElementById('scheduleDateInfo').textContent = '📅 ' + dateWithWeekday + ' - 데이터 없음';
+                document.getElementById('scheduleResultContent').innerHTML = '<div class="no-data">해당 날짜의 비교 데이터가 없습니다.</div>';
+                return;
+            }
+            
+            document.getElementById('scheduleDateInfo').textContent = '📅 ' + dateWithWeekday + ' (' + (currentScheduleDateIndex + 1) + '/' + scheduleDates.length + '일)';
+            
+            const results = currentResults.results;
+            let html = buildScheduleTable(results, true, false);
+            
+            // 요약 정보
+            const totalCount = results.length;
+            const amSameCount = results.filter(r => r.am_match === '같음').length;
+            const amDiffCount = results.filter(r => r.am_match === '다름').length;
+            const pmSameCount = results.filter(r => r.pm_match === '같음').length;
+            const pmDiffCount = results.filter(r => r.pm_match === '다름').length;
+            
+            html += '<div style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px;">' +
+                '<h4 style="margin-bottom: 10px;">📊 ' + dateWithWeekday + ' 비교 요약</h4>' +
+                '<p>총 수급자: <strong>' + totalCount + '명</strong></p>' +
+                '<p>오전 비교: <span class="match-same">✓ 같음 ' + amSameCount + '건</span> / <span class="match-diff">✗ 다름 ' + amDiffCount + '건</span></p>' +
+                '<p>오후 비교: <span class="match-same">✓ 같음 ' + pmSameCount + '건</span> / <span class="match-diff">✗ 다름 ' + pmDiffCount + '건</span></p>' +
+            '</div>';
+            
+            html += buildTotalSummary();
+            
+            document.getElementById('scheduleResultContent').innerHTML = html;
+        }
+        
+        function updateScheduleResultsDiffOnly() {
+            const currentDate = scheduleDates[currentScheduleDateIndex];
+            const dateKey = currentDate.key;
+            const dateWithWeekday = formatDateWithWeekday(dateKey);
+            const currentResults = scheduleData.results[dateKey];
+            
+            // 날짜 네비게이터 표시
+            document.getElementById('scheduleDateNavigator').style.display = 'flex';
+            
+            document.getElementById('scheduleDateInfo').textContent = '⚠️ ' + dateWithWeekday + ' - 다름만 보기 (' + (currentScheduleDateIndex + 1) + '/' + scheduleDates.length + '일)';
+            
+            if (!currentResults) {
+                document.getElementById('scheduleResultContent').innerHTML = '<div class="no-data">해당 날짜의 비교 데이터가 없습니다.</div>';
+                return;
+            }
+            
+            const diffItems = currentResults.results.filter(r => r.am_match === '다름' || r.pm_match === '다름');
+            
+            if (diffItems.length === 0) {
+                document.getElementById('scheduleResultContent').innerHTML = '<div class="no-data" style="background:#d4edda;color:#155724;">✅ 이 날짜는 모든 항목이 일치합니다!</div>';
+                return;
+            }
+            
+            // 오전/오후 각각 다름 건수 계산
+            var amDiffCount = diffItems.filter(function(r) { return r.am_match === '다름'; }).length;
+            var pmDiffCount = diffItems.filter(function(r) { return r.pm_match === '다름'; }).length;
+            
+            let html = buildScheduleTable(diffItems, true, true);
+            
+            html += '<div style="margin-top: 20px; padding: 15px; background: #fff3cd; border-radius: 8px;">' +
+                '<h4 style="margin-bottom: 10px;">⚠️ ' + dateWithWeekday + ' 다름 항목</h4>' +
+                '<p>오전 다름: <strong class="match-diff">' + amDiffCount + '건</strong></p>' +
+                '<p>오후 다름: <strong class="match-diff">' + pmDiffCount + '건</strong></p>' +
+            '</div>';
+            
+            document.getElementById('scheduleResultContent').innerHTML = html;
+        }
+        
+        function updateScheduleResultsDiffDays() {
+            // 날짜 네비게이터 숨기기
+            document.getElementById('scheduleDateNavigator').style.display = 'none';
+            
+            // 다름이 있는 날짜만 필터링
+            const diffDays = scheduleDates.filter(d => hasDiffInDate(d.key));
+            
+            if (diffDays.length === 0) {
+                document.getElementById('scheduleDateInfo').textContent = '✅ 모든 날짜가 일치합니다!';
+                document.getElementById('scheduleResultContent').innerHTML = '<div class="no-data" style="background:#d4edda;color:#155724;">✅ 분석 기간 내 모든 날짜의 모든 항목이 일치합니다!</div>';
+                return;
+            }
+            
+            document.getElementById('scheduleDateInfo').textContent = '⚠️ 다름이 있는 날: ' + diffDays.length + '일 / 전체 ' + scheduleDates.length + '일';
+            
+            let html = '';
+            
+            diffDays.forEach(dateInfo => {
+                const dateKey = dateInfo.key;
+                const dateWithWeekday = formatDateWithWeekday(dateKey);
+                const diffItems = getDiffItemsForDate(dateKey);
+                
+                // 오전/오후 각각 다름 건수 계산
+                var amDiffCount = diffItems.filter(function(r) { return r.am_match === '다름'; }).length;
+                var pmDiffCount = diffItems.filter(function(r) { return r.pm_match === '다름'; }).length;
+                
+                html += '<div style="margin-bottom: 30px; padding: 20px; background: #fff8f8; border: 2px solid #dc3545; border-radius: 12px;">';
+                html += '<h3 style="color: #dc3545; margin-bottom: 15px;">📅 ' + dateWithWeekday + ' <span style="font-size:0.8em;background:#17a2b8;color:white;padding:2px 8px;border-radius:4px;margin-right:5px;">오전 ' + amDiffCount + '건</span><span style="font-size:0.8em;background:#fd7e14;color:white;padding:2px 8px;border-radius:4px;">오후 ' + pmDiffCount + '건</span></h3>';
+                html += buildScheduleTable(diffItems, false, true);
+                html += '</div>';
+            });
+            
+            // 전체 요약
+            let totalDiffAm = 0, totalDiffPm = 0;
+            diffDays.forEach(d => {
+                const items = getDiffItemsForDate(d.key);
+                totalDiffAm += items.filter(x => x.am_match === '다름').length;
+                totalDiffPm += items.filter(x => x.pm_match === '다름').length;
+            });
+            
+            html += '<div style="margin-top: 20px; padding: 15px; background: #f8d7da; border-radius: 8px;">' +
+                '<h4 style="margin-bottom: 10px; color: #721c24;">⚠️ 다름 전체 요약</h4>' +
+                '<p>다름 있는 날: <strong>' + diffDays.length + '일</strong> / 전체 ' + scheduleDates.length + '일</p>' +
+                '<p>오전 다름: <strong class="match-diff">' + totalDiffAm + '건</strong></p>' +
+                '<p>오후 다름: <strong class="match-diff">' + totalDiffPm + '건</strong></p>' +
+            '</div>';
+            
+            document.getElementById('scheduleResultContent').innerHTML = html;
+        }
+        
+        function buildScheduleTable(items, showIndex, diffOnly) {
+            var amSortEl = document.getElementById('scheduleAmSortSelect');
+            var pmSortEl = document.getElementById('schedulePmSortSelect');
+            var amSort = amSortEl ? amSortEl.value : 'default';
+            var pmSort = pmSortEl ? pmSortEl.value : 'default';
+            
+            // diffOnly 모드일 때는 각각 다름인 항목만 필터링
+            var amFilteredItems = items;
+            var pmFilteredItems = items;
+            if (diffOnly) {
+                amFilteredItems = items.filter(function(r) { return r.am_match === '다름'; });
+                pmFilteredItems = items.filter(function(r) { return r.pm_match === '다름'; });
+            }
+            
+            const amItems = sortItems(amFilteredItems, amSort, 'am');
+            const pmItems = sortItems(pmFilteredItems, pmSort, 'pm');
+            
+            let html = '<div style="display: flex; gap: 10px; width: 100%; box-sizing: border-box;">';
+            
+            // 오전 테이블
+            html += '<div style="flex: 1; overflow-x: auto;">';
+            html += '<h4 style="color: #17a2b8; margin-bottom: 8px; text-align: center;">🌅 오전 송영시간표';
+            if (diffOnly) {
+                html += ' <span style="font-size:0.8em;background:#dc3545;color:white;padding:2px 6px;border-radius:4px;">' + amItems.length + '건</span>';
+            }
+            html += '</h4>';
+            html += '<table class="compare-table schedule-table-am" style="font-size: 11pt; width: 100%; table-layout: fixed;">';
+            html += `<tr>
+                <th class="sortable-header" data-sort="no" data-period="am" onclick="sortScheduleTable('am', 'no')" style="width:20px;">No<span class="sort-icon">${getSortIcon('am', 'no')}</span></th>
+                <th class="sortable-header" data-sort="seq" data-period="am" onclick="sortScheduleTable('am', 'seq')" style="width:20px;">순번<span class="sort-icon">${getSortIcon('am', 'seq')}</span></th>
+                <th class="sortable-header" data-sort="name" data-period="am" onclick="sortScheduleTable('am', 'name')" style="width:20px;">수급자<span class="sort-icon">${getSortIcon('am', 'name')}</span></th>
+                <th class="sortable-header" data-sort="transport" data-period="am" onclick="sortScheduleTable('am', 'transport')" style="width:35px;">이동(케어포)<span class="sort-icon">${getSortIcon('am', 'transport')}</span></th>
+                <th class="sortable-header" data-sort="schedule" data-period="am" onclick="sortScheduleTable('am', 'schedule')" style="width:35px;">송영(구글)<span class="sort-icon">${getSortIcon('am', 'schedule')}</span></th>
+                <th class="sortable-header" data-sort="car" data-period="am" onclick="sortScheduleTable('am', 'car')" style="width:42px;">차량명<span class="sort-icon">${getSortIcon('am', 'car')}</span></th>
+                <th class="sortable-header" data-sort="driver" data-period="am" onclick="sortScheduleTable('am', 'driver')" style="width:42px;">운전자<span class="sort-icon">${getSortIcon('am', 'driver')}</span></th>
+                <th class="sortable-header" data-sort="match" data-period="am" onclick="sortScheduleTable('am', 'match')" style="width:18px;">비교결과<span class="sort-icon">${getSortIcon('am', 'match')}</span></th>
+            </tr>`;
+            
+            if (amItems.length === 0 && diffOnly) {
+                html += '<tr><td colspan="8" style="text-align:center;color:#28a745;padding:20px;">✅ 오전 다름 항목 없음</td></tr>';
+            } else {
+                // 정렬 기준 컬럼의 그룹값 추출 함수
+                const amSortCol = scheduleSortState.am.column;
+                let amGroupIdx = 0;
+                let amPrevGroupVal = null;
+                
+                amItems.forEach((item, idx) => {
+                    // 현재 정렬 기준에 따른 그룹 값 결정
+                    let amGroupVal = null;
+                    if (amSortCol) {
+                        switch(amSortCol) {
+                            case 'seq': amGroupVal = item.am_seq || '-'; break;
+                            case 'name': amGroupVal = item.beneficiary || ''; break;
+                            case 'transport': amGroupVal = item.transport_start || '-'; break;
+                            case 'schedule': amGroupVal = item.schedule_am || '-'; break;
+                            case 'car': amGroupVal = (item.am_car || '-'); break;
+                            case 'driver': amGroupVal = item.am_driver || '-'; break;
+                            case 'match': amGroupVal = item.am_match || '-'; break;
+                            default: amGroupVal = null;
+                        }
+                    }
+                    if (amGroupVal !== null && amGroupVal !== amPrevGroupVal) {
+                        if (amPrevGroupVal !== null) amGroupIdx++;
+                        amPrevGroupVal = amGroupVal;
+                    }
+                    
+                    const matchClass = item.am_match === '같음' ? 'match-same' : (item.am_match === '다름' ? 'match-diff' : 'match-na');
+                    const rowClass = item.am_match === '다름' ? 'row-diff' : '';
+                    const transportStyle = item.am_match === '다름' ? 'color:#dc3545;font-weight:bold;' : 'color:#17a2b8;';
+                    const scheduleStyle = item.am_match === '다름' ? 'color:#dc3545;font-weight:bold;' : 'color:#6c757d;';
+                    
+                    let matchText;
+                    if (item.am_match === '같음') matchText = '✓';
+                    else if (item.am_match === '다름') matchText = '✗';
+                    else matchText = '-';
+                    
+                    let amCarDisplay = item.am_car || '-';
+                    if (item.am_car && item.am_car_number) {
+                        amCarDisplay = item.am_car + '(' + item.am_car_number + ')';
+                    }
+                    
+                    // 홀수 번째 그룹(0, 2, 4...)은 연두색 배경
+                    let amRowStyle = '';
+                    if (amSortCol && amGroupIdx % 2 === 0) {
+                        amRowStyle = 'background-color:#c8e6c9;';
+                    }
+                    
+                    html += `<tr class="${rowClass}" style="${amRowStyle}">
+                        <td>${idx + 1}</td>
+                        <td style="color:#0d6efd;font-weight:bold;">${item.am_seq || '-'}</td>
+                        <td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><strong>${item.beneficiary}</strong></td>
+                        <td style="${transportStyle}">${item.transport_start || '-'}</td>
+                        <td style="${scheduleStyle}">${item.schedule_am || '-'}</td>
+                        <td style="overflow:hidden;text-overflow:ellipsis;">${amCarDisplay}</td>
+                        <td style="overflow:hidden;text-overflow:ellipsis;">${item.am_driver || '-'}</td>
+                        <td class="${matchClass}">${matchText}</td>
+                    </tr>`;
+                });
+            }
+            html += '</table></div>';
+            
+            // 오후 테이블
+            html += '<div style="flex: 1; overflow-x: auto;">';
+            html += '<h4 style="color: #fd7e14; margin-bottom: 8px; text-align: center;">🌆 오후 송영시간표';
+            if (diffOnly) {
+                html += ' <span style="font-size:0.8em;background:#dc3545;color:white;padding:2px 6px;border-radius:4px;">' + pmItems.length + '건</span>';
+            }
+            html += '</h4>';
+            html += '<table class="compare-table schedule-table-pm" style="font-size: 11pt; width: 100%; table-layout: fixed;">';
+            html += `<tr>
+                <th class="sortable-header" data-sort="no" data-period="pm" onclick="sortScheduleTable('pm', 'no')" style="width:20px;">No<span class="sort-icon">${getSortIcon('pm', 'no')}</span></th>
+                <th class="sortable-header" data-sort="seq" data-period="pm" onclick="sortScheduleTable('pm', 'seq')" style="width:20px;">순번<span class="sort-icon">${getSortIcon('pm', 'seq')}</span></th>
+                <th class="sortable-header" data-sort="name" data-period="pm" onclick="sortScheduleTable('pm', 'name')" style="width:20px;">수급자<span class="sort-icon">${getSortIcon('pm', 'name')}</span></th>
+                <th class="sortable-header" data-sort="transport" data-period="pm" onclick="sortScheduleTable('pm', 'transport')" style="width:35px;">이동(케어포)<span class="sort-icon">${getSortIcon('pm', 'transport')}</span></th>
+                <th class="sortable-header" data-sort="schedule" data-period="pm" onclick="sortScheduleTable('pm', 'schedule')" style="width:35px;">송영(구글)<span class="sort-icon">${getSortIcon('pm', 'schedule')}</span></th>
+                <th class="sortable-header" data-sort="car" data-period="pm" onclick="sortScheduleTable('pm', 'car')" style="width:42px;">차량명<span class="sort-icon">${getSortIcon('pm', 'car')}</span></th>
+                <th class="sortable-header" data-sort="driver" data-period="pm" onclick="sortScheduleTable('pm', 'driver')" style="width:42px;">운전자<span class="sort-icon">${getSortIcon('pm', 'driver')}</span></th>
+                <th class="sortable-header" data-sort="match" data-period="pm" onclick="sortScheduleTable('pm', 'match')" style="width:18px;">비교결과<span class="sort-icon">${getSortIcon('pm', 'match')}</span></th>
+            </tr>`;
+            
+            if (pmItems.length === 0 && diffOnly) {
+                html += '<tr><td colspan="8" style="text-align:center;color:#28a745;padding:20px;">✅ 오후 다름 항목 없음</td></tr>';
+            } else {
+                // 정렬 기준 컬럼의 그룹값 추출
+                const pmSortCol = scheduleSortState.pm.column;
+                let pmGroupIdx = 0;
+                let pmPrevGroupVal = null;
+                
+                pmItems.forEach((item, idx) => {
+                    let pmGroupVal = null;
+                    if (pmSortCol) {
+                        switch(pmSortCol) {
+                            case 'seq': pmGroupVal = item.pm_seq || '-'; break;
+                            case 'name': pmGroupVal = item.beneficiary || ''; break;
+                            case 'transport': pmGroupVal = item.transport_end || '-'; break;
+                            case 'schedule': pmGroupVal = item.schedule_pm || '-'; break;
+                            case 'car': pmGroupVal = (item.pm_car || '-'); break;
+                            case 'driver': pmGroupVal = item.pm_driver || '-'; break;
+                            case 'match': pmGroupVal = item.pm_match || '-'; break;
+                            default: pmGroupVal = null;
+                        }
+                    }
+                    if (pmGroupVal !== null && pmGroupVal !== pmPrevGroupVal) {
+                        if (pmPrevGroupVal !== null) pmGroupIdx++;
+                        pmPrevGroupVal = pmGroupVal;
+                    }
+                    
+                    const matchClass = item.pm_match === '같음' ? 'match-same' : (item.pm_match === '다름' ? 'match-diff' : 'match-na');
+                    const rowClass = item.pm_match === '다름' ? 'row-diff' : '';
+                    const transportStyle = item.pm_match === '다름' ? 'color:#dc3545;font-weight:bold;' : 'color:#fd7e14;';
+                    const scheduleStyle = item.pm_match === '다름' ? 'color:#dc3545;font-weight:bold;' : 'color:#6c757d;';
+                    
+                    let matchText;
+                    if (item.pm_match === '같음') matchText = '✓';
+                    else if (item.pm_match === '다름') matchText = '✗';
+                    else matchText = '-';
+                    
+                    let pmCarDisplay = item.pm_car || '-';
+                    if (item.pm_car && item.pm_car_number) {
+                        pmCarDisplay = item.pm_car + '(' + item.pm_car_number + ')';
+                    }
+                    
+                    // 홀수 번째 그룹(0, 2, 4...)은 노란색 배경
+                    let pmRowStyle = '';
+                    if (pmSortCol && pmGroupIdx % 2 === 0) {
+                        pmRowStyle = 'background-color:#fff9c4;';
+                    }
+                    
+                    html += `<tr class="${rowClass}" style="${pmRowStyle}">
+                        <td>${idx + 1}</td>
+                        <td style="color:#0d6efd;font-weight:bold;">${item.pm_seq || '-'}</td>
+                        <td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><strong>${item.beneficiary}</strong></td>
+                        <td style="${transportStyle}">${item.transport_end || '-'}</td>
+                        <td style="${scheduleStyle}">${item.schedule_pm || '-'}</td>
+                        <td style="overflow:hidden;text-overflow:ellipsis;">${pmCarDisplay}</td>
+                        <td style="overflow:hidden;text-overflow:ellipsis;">${item.pm_driver || '-'}</td>
+                        <td class="${matchClass}">${matchText}</td>
+                    </tr>`;
+                });
+            }
+            html += '</table></div>';
+            
+            html += '</div>';
+            return html;
+        }
+
+        
+        function buildTotalSummary() {
+            let totalAllCount = 0, totalAmSame = 0, totalAmDiff = 0, totalPmSame = 0, totalPmDiff = 0;
+            for (const key in scheduleData.results) {
+                const r = scheduleData.results[key].results;
+                totalAllCount += r.length;
+                totalAmSame += r.filter(x => x.am_match === '같음').length;
+                totalAmDiff += r.filter(x => x.am_match === '다름').length;
+                totalPmSame += r.filter(x => x.pm_match === '같음').length;
+                totalPmDiff += r.filter(x => x.pm_match === '다름').length;
+            }
+            
+            return `<div style="margin-top: 10px; padding: 15px; background: #e8ecff; border-radius: 8px;">
+                <h4 style="margin-bottom: 10px;">📈 전체 기간 요약 (${scheduleDates.length}일)</h4>
+                <p>총 비교 건수: <strong>${totalAllCount}건</strong></p>
+                <p>오전 전체: <span class="match-same">✓ 같음 ${totalAmSame}건</span> / <span class="match-diff">✗ 다름 ${totalAmDiff}건</span></p>
+                <p>오후 전체: <span class="match-same">✓ 같음 ${totalPmSame}건</span> / <span class="match-diff">✗ 다름 ${totalPmDiff}건</span></p>
+            </div>`;
+        }
+
+        function buildDateDataMap() { dateDataMap = {}; analysisData.by_date.forEach(row => { if (!dateDataMap[row.date]) dateDataMap[row.date] = []; dateDataMap[row.date].push({ driver: row.driver, first_start: row.first_start, last_end: row.last_end }); }); }
+        function buildAvailableYearMonths() {
+            availableYears = []; availableMonths = {}; const yearMonthSet = new Set();
+            allDates.forEach(date => { const parts = date.split('.'); const year = parseInt(parts[0]), month = parseInt(parts[1]); yearMonthSet.add(`${year}.${String(month).padStart(2, '0')}`); if (!availableYears.includes(year)) { availableYears.push(year); availableMonths[year] = []; } if (!availableMonths[year].includes(month)) availableMonths[year].push(month); });
+            availableYears.sort((a, b) => a - b); for (let year in availableMonths) availableMonths[year].sort((a, b) => a - b);
+            availableYearMonths = Array.from(yearMonthSet).sort().map(ym => { const parts = ym.split('.'); return { year: parseInt(parts[0]), month: parseInt(parts[1]) }; });
+            if (availableYearMonths.length > 0) { currentYearMonthIndex = 0; currentYear = availableYearMonths[0].year; currentMonth = availableYearMonths[0].month; }
+        }
+        function buildCompareYearMonths() {
+            const yearMonthSet = new Set();
+            compareData.by_date.forEach(item => { const parts = item.date.split('.'); yearMonthSet.add(`${parts[0]}.${parts[1]}`); });
+            compareYearMonths = Array.from(yearMonthSet).sort().map(ym => { const parts = ym.split('.'); return { year: parseInt(parts[0]), month: parseInt(parts[1]) }; });
+            if (compareYearMonths.length > 0) { currentCompareIndex = 0; currentCompareYear = compareYearMonths[0].year; currentCompareMonth = compareYearMonths[0].month; }
+        }
+        function initDropdowns() { const yearSelect = document.getElementById('yearSelect'); yearSelect.innerHTML = ''; availableYears.forEach(year => { const option = document.createElement('option'); option.value = year; option.textContent = year; if (year === currentYear) option.selected = true; yearSelect.appendChild(option); }); updateMonthDropdown(); }
+        function initCompareDropdowns() { const yearSelect = document.getElementById('compareYearSelect'); const years = [...new Set(compareYearMonths.map(ym => ym.year))].sort(); yearSelect.innerHTML = ''; years.forEach(year => { const option = document.createElement('option'); option.value = year; option.textContent = year; if (year === currentCompareYear) option.selected = true; yearSelect.appendChild(option); }); updateCompareMonthDropdown(); }
+        function updateMonthDropdown() { const monthSelect = document.getElementById('monthSelect'); monthSelect.innerHTML = ''; const months = availableMonths[currentYear] || []; months.forEach(month => { const option = document.createElement('option'); option.value = month; option.textContent = month; if (month === currentMonth) option.selected = true; monthSelect.appendChild(option); }); if (!months.includes(currentMonth) && months.length > 0) { currentMonth = months[0]; monthSelect.value = currentMonth; } }
+        function updateCompareMonthDropdown() { const monthSelect = document.getElementById('compareMonthSelect'); monthSelect.innerHTML = ''; const months = compareYearMonths.filter(ym => ym.year === currentCompareYear).map(ym => ym.month); months.forEach(month => { const option = document.createElement('option'); option.value = month; option.textContent = month; if (month === currentCompareMonth) option.selected = true; monthSelect.appendChild(option); }); if (!months.includes(currentCompareMonth) && months.length > 0) { currentCompareMonth = months[0]; monthSelect.value = currentCompareMonth; } }
+        function onDropdownChange() { const newYear = parseInt(document.getElementById('yearSelect').value); if (newYear !== currentYear) { currentYear = newYear; updateMonthDropdown(); } currentMonth = parseInt(document.getElementById('monthSelect').value); updateCurrentIndex(); selectCurrentMonth(); }
+        function onCompareDropdownChange() { const newYear = parseInt(document.getElementById('compareYearSelect').value); if (newYear !== currentCompareYear) { currentCompareYear = newYear; updateCompareMonthDropdown(); } currentCompareMonth = parseInt(document.getElementById('compareMonthSelect').value); updateCompareIndex(); updateCompareNavButtons(); updateCompareResults(); if (document.getElementById('compareByCalendarTab').classList.contains('active')) { renderCompareCalendar(); updateCompareCalendarResults(); } }
+        function updateCurrentIndex() { for (let i = 0; i < availableYearMonths.length; i++) { if (availableYearMonths[i].year === currentYear && availableYearMonths[i].month === currentMonth) { currentYearMonthIndex = i; break; } } }
+        function updateCompareIndex() { for (let i = 0; i < compareYearMonths.length; i++) { if (compareYearMonths[i].year === currentCompareYear && compareYearMonths[i].month === currentCompareMonth) { currentCompareIndex = i; break; } } }
+        function navigateMonth(direction) { const newIndex = currentYearMonthIndex + direction; if (newIndex >= 0 && newIndex < availableYearMonths.length) { currentYearMonthIndex = newIndex; currentYear = availableYearMonths[newIndex].year; currentMonth = availableYearMonths[newIndex].month; document.getElementById('yearSelect').value = currentYear; updateMonthDropdown(); document.getElementById('monthSelect').value = currentMonth; selectCurrentMonth(); } }
+        function navigateCompareMonth(direction) { const newIndex = currentCompareIndex + direction; if (newIndex >= 0 && newIndex < compareYearMonths.length) { currentCompareIndex = newIndex; currentCompareYear = compareYearMonths[newIndex].year; currentCompareMonth = compareYearMonths[newIndex].month; document.getElementById('compareYearSelect').value = currentCompareYear; updateCompareMonthDropdown(); document.getElementById('compareMonthSelect').value = currentCompareMonth; updateCompareNavButtons(); updateCompareResults(); if (document.getElementById('compareByCalendarTab').classList.contains('active')) { renderCompareCalendar(); updateCompareCalendarResults(); } } }
+        function updateNavButtons() { document.getElementById('prevMonthBtn').disabled = currentYearMonthIndex <= 0; document.getElementById('nextMonthBtn').disabled = currentYearMonthIndex >= availableYearMonths.length - 1; }
+        function updateCompareNavButtons() { document.getElementById('prevCompareMonthBtn').disabled = currentCompareIndex <= 0; document.getElementById('nextCompareMonthBtn').disabled = currentCompareIndex >= compareYearMonths.length - 1; }
+        function selectCurrentMonth() { const monthPrefix = `${currentYear}.${String(currentMonth).padStart(2, '0')}`; selectedDates = new Set(allDates.filter(d => d.startsWith(monthPrefix))); document.getElementById('selectAllBtn').classList.remove('active'); document.getElementById('selectMonthBtn').classList.add('active'); updateNavButtons(); renderCalendar(); updateResults(); }
+        function renderCalendar() {
+            const grid = document.getElementById('calendarGrid');
+            grid.innerHTML = '<div class="calendar-day-header">일</div><div class="calendar-day-header">월</div><div class="calendar-day-header">화</div><div class="calendar-day-header">수</div><div class="calendar-day-header">목</div><div class="calendar-day-header">금</div><div class="calendar-day-header">토</div>';
+            const firstDay = new Date(currentYear, currentMonth - 1, 1), lastDay = new Date(currentYear, currentMonth, 0);
+            const startDayOfWeek = firstDay.getDay(), daysInMonth = lastDay.getDate();
+            for (let i = 0; i < startDayOfWeek; i++) { const emptyDiv = document.createElement('div'); emptyDiv.className = 'calendar-day empty'; grid.appendChild(emptyDiv); }
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dateStr = `${currentYear}.${String(currentMonth).padStart(2, '0')}.${String(day).padStart(2, '0')}`;
+                const dayOfWeek = (startDayOfWeek + day - 1) % 7, hasData = allDates.includes(dateStr), isSelected = selectedDates.has(dateStr), dayData = dateDataMap[dateStr] || [];
+                const dayDiv = document.createElement('div'); dayDiv.className = 'calendar-day';
+                if (hasData) dayDiv.classList.add('has-data'); if (isSelected) dayDiv.classList.add('selected');
+                let dayNumberClass = 'day-number'; if (dayOfWeek === 0) dayNumberClass += ' sunday'; if (dayOfWeek === 6) dayNumberClass += ' saturday';
+                let headerHtml = `<div class="day-header"><span class="${dayNumberClass}">${day}</span>`; if (hasData) headerHtml += `<span class="driver-count">${dayData.length}명</span>`; headerHtml += '</div>';
+                let contentHtml = '<div class="day-content">'; if (hasData) dayData.forEach(d => { contentHtml += `<div class="driver-info"><span>${d.driver}</span><span style="color:#666;font-size:0.9em">${d.first_start}~${d.last_end}</span></div>`; }); contentHtml += '</div>';
+                dayDiv.innerHTML = headerHtml + contentHtml; if (hasData) dayDiv.onclick = () => toggleDate(dateStr); grid.appendChild(dayDiv);
+            }
+        }
+        function toggleDate(dateStr) { if (selectedDates.has(dateStr)) selectedDates.delete(dateStr); else selectedDates.add(dateStr); document.getElementById('selectAllBtn').classList.remove('active'); document.getElementById('selectMonthBtn').classList.remove('active'); renderCalendar(); updateResults(); }
+        function selectAll() { selectedDates = new Set(allDates); document.getElementById('selectAllBtn').classList.add('active'); document.getElementById('selectMonthBtn').classList.remove('active'); renderCalendar(); updateResults(); }
+        function clearSelection() { selectedDates.clear(); document.getElementById('selectAllBtn').classList.remove('active'); document.getElementById('selectMonthBtn').classList.remove('active'); renderCalendar(); updateResults(); }
+        function updateResults() {
+            const selectedArray = Array.from(selectedDates).sort();
+            if (selectedArray.length === 0) document.getElementById('selectedPeriod').textContent = '📌 선택된 기간: 없음';
+            else if (selectedArray.length === allDates.length) document.getElementById('selectedPeriod').textContent = '📌 선택된 기간: 전체 (' + allDates.length + '일)';
+            else if (selectedArray.length === 1) document.getElementById('selectedPeriod').textContent = '📌 선택된 날짜: ' + selectedArray[0];
+            else document.getElementById('selectedPeriod').textContent = '📌 선택된 기간: ' + selectedArray.length + '일 선택됨';
+            const filteredByDate = analysisData.by_date.filter(row => selectedDates.has(row.date));
+            const filteredByDriver = analysisData.by_driver.filter(row => selectedDates.has(row.date));
+            if (filteredByDate.length === 0) document.getElementById('byDateContent').innerHTML = '<div class="no-data">선택된 날짜에 데이터가 없습니다.</div>';
+            else { let html = '<table class="result-table"><tr><th>일자</th><th>운전자</th><th>첫 시작</th><th>마지막 종료</th></tr>'; let currentDate = ''; filteredByDate.forEach(row => { if (row.date !== currentDate) { currentDate = row.date; html += '<tr class="date-header"><td colspan="4">📅 ' + row.date + '</td></tr>'; } html += '<tr><td></td><td>' + row.driver + '</td><td>' + row.first_start + '</td><td>' + row.last_end + '</td></tr>'; }); html += '</table>'; document.getElementById('byDateContent').innerHTML = html; }
+            if (filteredByDriver.length === 0) document.getElementById('byDriverContent').innerHTML = '<div class="no-data">선택된 날짜에 데이터가 없습니다.</div>';
+            else { let html = '<table class="result-table"><tr><th>운전자</th><th>일자</th><th>첫 시작</th><th>마지막 종료</th></tr>'; let currentDriver = ''; filteredByDriver.forEach(row => { if (row.driver !== currentDriver) { currentDriver = row.driver; html += '<tr class="driver-header"><td colspan="4">🧑‍✈️ ' + row.driver + '</td></tr>'; } html += '<tr><td></td><td>' + row.date + '</td><td>' + row.first_start + '</td><td>' + row.last_end + '</td></tr>'; }); html += '</table>'; document.getElementById('byDriverContent').innerHTML = html; }
+        }
+
+        function getWorkTypeBadge(workType) {
+            if (!workType || workType === '-') return '';
+            if (workType.includes('유급휴일')) return '<span class="work-type-badge holiday">' + workType + '</span>';
+            if (workType.includes('연차') || workType.includes('휴가')) return '<span class="work-type-badge leave">' + workType + '</span>';
+            if (workType.includes('병가')) return '<span class="work-type-badge sick">' + workType + '</span>';
+            return '<span class="work-type-badge regular">' + workType + '</span>';
+        }
+        
+        // 날짜를 요일로 변환하는 함수 (2026.01.27 형식)
+        function getWeekday(dateStr) {
+            const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
+            const parts = dateStr.split('.');
+            if (parts.length < 3) return '';
+            const year = parseInt(parts[0]);
+            const month = parseInt(parts[1]) - 1;
+            const day = parseInt(parts[2]);
+            const date = new Date(year, month, day);
+            return weekdays[date.getDay()];
+        }
+        
+        // 날짜와 요일을 함께 표시하는 함수 - "2026년 01월 27일(월)" 형태
+        function formatDateWithWeekday(dateStr) {
+            const parts = dateStr.split('.');
+            if (parts.length < 3) return dateStr;
+            const year = parts[0];
+            const month = parts[1];
+            const day = parts[2];
+            const weekday = getWeekday(dateStr);
+            return year + '년 ' + month + '월 ' + day + '일(' + weekday + ')';
+        }
+        
+        // 시간 비교 함수 (HH:MM 형식)
+        function compareTime(time1, time2) {
+            // time1 > time2 이면 양수, time1 < time2 이면 음수, 같으면 0
+            if (!time1 || !time2 || time1 === '-' || time2 === '-') return null;
+            const t1 = time1.replace(':', '');
+            const t2 = time2.replace(':', '');
+            return parseInt(t1) - parseInt(t2);
+        }
+        
+        // 이상 시간 체크 함수
+        function getTimeAlertStyle(value, isAlert) {
+            if (isAlert) {
+                return 'background-color: #ffcccc; color: #dc3545; font-weight: bold;';
+            }
+            return '';
+        }
+        
+        // 휴게시간이 60분 미만인지 체크하는 함수 (한글 형식: "1시간", "30분", "1시간 30분")
+        function isBreakTimeLessThan60(breakTime) {
+            if (!breakTime || breakTime === '-' || breakTime === '' || breakTime === 'None' || breakTime === 'null') return false;
+            
+            var timeStr = String(breakTime).trim();
+            if (timeStr === '' || timeStr === '-') return false;
+            
+            var hours = 0;
+            var minutes = 0;
+            
+            // 한글 형식 처리: "1시간", "30분", "1시간 30분"
+            var hourMatch = timeStr.match(/(\d+)\s*시간/);
+            var minMatch = timeStr.match(/(\d+)\s*분/);
+            
+            if (hourMatch || minMatch) {
+                hours = hourMatch ? parseInt(hourMatch[1], 10) : 0;
+                minutes = minMatch ? parseInt(minMatch[1], 10) : 0;
+                var totalMinutes = hours * 60 + minutes;
+                // 0분이거나 60분 이상이면 false (빨간색 아님)
+                if (totalMinutes === 0 || totalMinutes >= 60) return false;
+                return true;
+            }
+            
+            // "H:MM" 형식 처리 (호환성)
+            if (timeStr.indexOf(':') !== -1) {
+                var parts = timeStr.split(':');
+                hours = parseInt(parts[0], 10) || 0;
+                minutes = parseInt(parts[1], 10) || 0;
+                var totalMinutes = hours * 60 + minutes;
+                if (totalMinutes === 0 || totalMinutes >= 60) return false;
+                return true;
+            }
+            
+            return false;
+        }
+
+        function updateCompareResults() {
+            const monthPrefix = currentCompareYear + '.' + String(currentCompareMonth).padStart(2, '0');
+            const filteredByDate = compareData.by_date.filter(item => item.date.startsWith(monthPrefix));
+            if (filteredByDate.length === 0) document.getElementById('compareByDateContent').innerHTML = '<div class="no-data">해당 월에 데이터가 없습니다.</div>';
+            else {
+                let html = '<table class="compare-table"><tr><th rowspan="2">날짜</th><th rowspan="2">직원명</th><th rowspan="2">순번</th><th rowspan="2">근무유형</th><th colspan="2" class="transport-header">🚗 이동서비스</th><th colspan="4" class="schedule-header">📋 근무일정</th><th colspan="4" class="attendance-header">🕐 실제출퇴근</th></tr>';
+                html += '<tr><th class="transport-header">시작</th><th class="transport-header">종료</th><th class="schedule-header">시작</th><th class="schedule-header">종료</th><th class="schedule-header">휴게</th><th class="schedule-header">총근무</th><th class="attendance-header">출근</th><th class="attendance-header">퇴근</th><th class="attendance-header">휴게</th><th class="attendance-header">총근무</th></tr>';
+                let currentDate = '';
+                filteredByDate.forEach(item => {
+                    if (item.date !== currentDate) { currentDate = item.date; html += '<tr class="date-row"><td colspan="14">📅 ' + formatDateWithWeekday(item.date) + '</td></tr>'; }
+                    const rowClass = item.row_index > 0 ? 'sub-row' : '';
+                    const rowIndexDisplay = item.total_rows > 1 ? '<span style="color:#999;font-size:0.8em">' + (item.row_index + 1) + '/' + item.total_rows + '</span>' : '';
+                    
+                    // 이상 시간 체크
+                    // 1. 이동서비스 시작 < 근무일정 시작 (근무 전 이동서비스)
+                    const transportStartAlert = compareTime(item.transport_start, item.schedule_start) < 0;
+                    // 2. 이동서비스 종료 > 근무일정 종료 (근무 후 이동서비스)
+                    const transportEndAlert = compareTime(item.transport_end, item.schedule_end) > 0;
+                    // 3. 실제출퇴근 출근 > 근무일정 시작 (지각)
+                    const attendanceStartAlert = compareTime(item.attendance_start, item.schedule_start) > 0;
+                    // 4. 실제출퇴근 퇴근 < 근무일정 종료 (조퇴)
+                    const attendanceEndAlert = compareTime(item.attendance_end, item.schedule_end) < 0;
+                    // 5. 휴게시간 60분 미만 체크
+                    const scheduleBreakAlert = isBreakTimeLessThan60(item.schedule_break);
+                    const attendanceBreakAlert = isBreakTimeLessThan60(item.attendance_break);
+                    
+                    // 이동서비스 시작/종료 표시
+                    let transportStartHtml, transportEndHtml;
+                    if (item.transport_start && item.transport_start !== '-') {
+                        const alertStyle = transportStartAlert ? ' style="' + getTimeAlertStyle(item.transport_start, true) + '"' : '';
+                        transportStartHtml = '<span class="has-transport"' + alertStyle + '>' + item.transport_start + '</span>';
+                    } else {
+                        transportStartHtml = '<span class="no-transport">-</span>';
+                    }
+                    if (item.transport_end && item.transport_end !== '-') {
+                        const alertStyle = transportEndAlert ? ' style="' + getTimeAlertStyle(item.transport_end, true) + '"' : '';
+                        transportEndHtml = '<span class="has-transport"' + alertStyle + '>' + item.transport_end + '</span>';
+                    } else {
+                        transportEndHtml = '<span class="no-transport">-</span>';
+                    }
+                    
+                    // 실제출퇴근 출근/퇴근 스타일
+                    const attendanceStartStyle = attendanceStartAlert ? ' style="' + getTimeAlertStyle(item.attendance_start, true) + '"' : '';
+                    const attendanceEndStyle = attendanceEndAlert ? ' style="' + getTimeAlertStyle(item.attendance_end, true) + '"' : '';
+                    // 휴게시간 스타일
+                    const scheduleBreakStyle = scheduleBreakAlert ? ' style="' + getTimeAlertStyle(item.schedule_break, true) + '"' : '';
+                    const attendanceBreakStyle = attendanceBreakAlert ? ' style="' + getTimeAlertStyle(item.attendance_break, true) + '"' : '';
+                    
+                    html += '<tr class="' + rowClass + '"><td></td><td><strong>' + item.employee + '</strong></td><td>' + rowIndexDisplay + '</td><td>' + getWorkTypeBadge(item.work_type) + '</td><td>' + transportStartHtml + '</td><td>' + transportEndHtml + '</td><td class="schedule-time">' + (item.schedule_start || '-') + '</td><td class="schedule-time">' + (item.schedule_end || '-') + '</td><td class="schedule-time"' + scheduleBreakStyle + '>' + (item.schedule_break || '-') + '</td><td class="schedule-time">' + (item.schedule_work_hours || '-') + '</td><td class="attendance-time"' + attendanceStartStyle + '>' + (item.attendance_start || '-') + '</td><td class="attendance-time"' + attendanceEndStyle + '>' + (item.attendance_end || '-') + '</td><td class="attendance-time"' + attendanceBreakStyle + '>' + (item.attendance_break || '-') + '</td><td class="attendance-time">' + (item.attendance_work_hours || '-') + '</td></tr>';
+                });
+                html += '</table>';
+                document.getElementById('compareByDateContent').innerHTML = html;
+            }
+            const filteredByEmployee = compareData.by_employee.filter(item => item.date.startsWith(monthPrefix));
+            if (filteredByEmployee.length === 0) document.getElementById('compareByEmployeeContent').innerHTML = '<div class="no-data">해당 월에 데이터가 없습니다.</div>';
+            else {
+                let html = '<table class="compare-table"><tr><th rowspan="2">직원명</th><th rowspan="2">날짜</th><th rowspan="2">순번</th><th rowspan="2">근무유형</th><th colspan="2" class="transport-header">🚗 이동서비스</th><th colspan="4" class="schedule-header">📋 근무일정</th><th colspan="4" class="attendance-header">🕐 실제출퇴근</th></tr>';
+                html += '<tr><th class="transport-header">시작</th><th class="transport-header">종료</th><th class="schedule-header">시작</th><th class="schedule-header">종료</th><th class="schedule-header">휴게</th><th class="schedule-header">총근무</th><th class="attendance-header">출근</th><th class="attendance-header">퇴근</th><th class="attendance-header">휴게</th><th class="attendance-header">총근무</th></tr>';
+                let currentEmployee = '';
+                filteredByEmployee.forEach(item => {
+                    if (item.employee !== currentEmployee) { currentEmployee = item.employee; html += '<tr class="employee-row"><td colspan="14">👤 ' + item.employee + '</td></tr>'; }
+                    const rowClass = item.row_index > 0 ? 'sub-row' : '';
+                    const rowIndexDisplay = item.total_rows > 1 ? '<span style="color:#999;font-size:0.8em">' + (item.row_index + 1) + '/' + item.total_rows + '</span>' : '';
+                    
+                    // 이상 시간 체크
+                    const transportStartAlert = compareTime(item.transport_start, item.schedule_start) < 0;
+                    const transportEndAlert = compareTime(item.transport_end, item.schedule_end) > 0;
+                    const attendanceStartAlert = compareTime(item.attendance_start, item.schedule_start) > 0;
+                    const attendanceEndAlert = compareTime(item.attendance_end, item.schedule_end) < 0;
+                    // 휴게시간 60분 미만 체크
+                    const scheduleBreakAlert = isBreakTimeLessThan60(item.schedule_break);
+                    const attendanceBreakAlert = isBreakTimeLessThan60(item.attendance_break);
+                    
+                    // 이동서비스 시작/종료 표시
+                    let transportStartHtml, transportEndHtml;
+                    if (item.transport_start && item.transport_start !== '-') {
+                        const alertStyle = transportStartAlert ? ' style="' + getTimeAlertStyle(item.transport_start, true) + '"' : '';
+                        transportStartHtml = '<span class="has-transport"' + alertStyle + '>' + item.transport_start + '</span>';
+                    } else {
+                        transportStartHtml = '<span class="no-transport">-</span>';
+                    }
+                    if (item.transport_end && item.transport_end !== '-') {
+                        const alertStyle = transportEndAlert ? ' style="' + getTimeAlertStyle(item.transport_end, true) + '"' : '';
+                        transportEndHtml = '<span class="has-transport"' + alertStyle + '>' + item.transport_end + '</span>';
+                    } else {
+                        transportEndHtml = '<span class="no-transport">-</span>';
+                    }
+                    
+                    // 실제출퇴근 출근/퇴근 스타일
+                    const attendanceStartStyle = attendanceStartAlert ? ' style="' + getTimeAlertStyle(item.attendance_start, true) + '"' : '';
+                    const attendanceEndStyle = attendanceEndAlert ? ' style="' + getTimeAlertStyle(item.attendance_end, true) + '"' : '';
+                    // 휴게시간 스타일
+                    const scheduleBreakStyle = scheduleBreakAlert ? ' style="' + getTimeAlertStyle(item.schedule_break, true) + '"' : '';
+                    const attendanceBreakStyle = attendanceBreakAlert ? ' style="' + getTimeAlertStyle(item.attendance_break, true) + '"' : '';
+                    
+                    html += '<tr class="' + rowClass + '"><td></td><td>' + formatDateWithWeekday(item.date) + '</td><td>' + rowIndexDisplay + '</td><td>' + getWorkTypeBadge(item.work_type) + '</td><td>' + transportStartHtml + '</td><td>' + transportEndHtml + '</td><td class="schedule-time">' + (item.schedule_start || '-') + '</td><td class="schedule-time">' + (item.schedule_end || '-') + '</td><td class="schedule-time"' + scheduleBreakStyle + '>' + (item.schedule_break || '-') + '</td><td class="schedule-time">' + (item.schedule_work_hours || '-') + '</td><td class="attendance-time"' + attendanceStartStyle + '>' + (item.attendance_start || '-') + '</td><td class="attendance-time"' + attendanceEndStyle + '>' + (item.attendance_end || '-') + '</td><td class="attendance-time"' + attendanceBreakStyle + '>' + (item.attendance_break || '-') + '</td><td class="attendance-time">' + (item.attendance_work_hours || '-') + '</td></tr>';
+                });
+                html += '</table>';
+                document.getElementById('compareByEmployeeContent').innerHTML = html;
+            }
+        }
+
+        // === 근무시간 비교 달력 ===
+        let compareSelectedDates = new Set();
+        let compareAllDates = [];
+
+        function buildCompareAllDates() {
+            compareAllDates = [];
+            if (!compareData || !compareData.by_date) return;
+            const dateSet = new Set();
+            compareData.by_date.forEach(function(item) { dateSet.add(item.date); });
+            compareAllDates = Array.from(dateSet).sort();
+        }
+
+        function renderCompareCalendar() {
+            if (!compareData) return;
+            buildCompareAllDates();
+            const grid = document.getElementById('compareCalendarGrid');
+            grid.innerHTML = '<div class="calendar-day-header">일</div><div class="calendar-day-header">월</div><div class="calendar-day-header">화</div><div class="calendar-day-header">수</div><div class="calendar-day-header">목</div><div class="calendar-day-header">금</div><div class="calendar-day-header">토</div>';
+
+            const firstDay = new Date(currentCompareYear, currentCompareMonth - 1, 1);
+            const lastDay = new Date(currentCompareYear, currentCompareMonth, 0);
+            const startDayOfWeek = firstDay.getDay();
+            const daysInMonth = lastDay.getDate();
+
+            for (var i = 0; i < startDayOfWeek; i++) {
+                var emptyDiv = document.createElement('div');
+                emptyDiv.className = 'calendar-day empty';
+                grid.appendChild(emptyDiv);
+            }
+
+            for (var d = 1; d <= daysInMonth; d++) {
+                var dayDiv = document.createElement('div');
+                var dateStr = currentCompareYear + '.' + String(currentCompareMonth).padStart(2, '0') + '.' + String(d).padStart(2, '0');
+                var hasData = compareAllDates.indexOf(dateStr) >= 0;
+                var isSelected = compareSelectedDates.has(dateStr);
+                dayDiv.className = 'calendar-day';
+                if (hasData) dayDiv.classList.add('has-data');
+                if (isSelected) dayDiv.classList.add('selected');
+                if (!hasData) dayDiv.classList.add('empty');
+                dayDiv.textContent = d;
+
+                if (hasData) {
+                    dayDiv.setAttribute('data-date', dateStr);
+                    dayDiv.onclick = (function(ds, div) {
+                        return function() {
+                            if (compareSelectedDates.has(ds)) {
+                                compareSelectedDates.delete(ds);
+                                div.classList.remove('selected');
+                            } else {
+                                compareSelectedDates.add(ds);
+                                div.classList.add('selected');
+                            }
+                            updateCompareCalendarInfo();
+                            updateCompareCalendarResults();
+                        };
+                    })(dateStr, dayDiv);
+                }
+                grid.appendChild(dayDiv);
+            }
+            updateCompareCalendarInfo();
+        }
+
+        function compareCalToggleAll() {
+            var monthPrefix = currentCompareYear + '.' + String(currentCompareMonth).padStart(2, '0');
+            var monthDates = compareAllDates.filter(function(d) { return d.startsWith(monthPrefix); });
+            monthDates.forEach(function(d) { compareSelectedDates.add(d); });
+            renderCompareCalendar();
+            updateCompareCalendarResults();
+        }
+
+        function compareCalClearAll() {
+            var monthPrefix = currentCompareYear + '.' + String(currentCompareMonth).padStart(2, '0');
+            var monthDates = compareAllDates.filter(function(d) { return d.startsWith(monthPrefix); });
+            monthDates.forEach(function(d) { compareSelectedDates.delete(d); });
+            renderCompareCalendar();
+            updateCompareCalendarResults();
+        }
+
+        function updateCompareCalendarInfo() {
+            var monthPrefix = currentCompareYear + '.' + String(currentCompareMonth).padStart(2, '0');
+            var monthDates = compareAllDates.filter(function(d) { return d.startsWith(monthPrefix); });
+            var sel = monthDates.filter(function(d) { return compareSelectedDates.has(d); });
+            document.getElementById('compareCalSelectedInfo').textContent = sel.length + '일 선택됨 / ' + monthDates.length + '일';
+        }
+
+        function updateCompareCalendarResults() {
+            var container = document.getElementById('compareByCalendarContent');
+            var dlArea = document.getElementById('compareCalDownloadArea');
+            var selArray = Array.from(compareSelectedDates).sort();
+            if (selArray.length === 0) {
+                container.innerHTML = '<div class="no-data">달력에서 비교할 날짜를 선택하세요.</div>';
+                dlArea.style.display = 'none';
+                return;
+            }
+
+            var filtered = compareData.by_date.filter(function(item) { return compareSelectedDates.has(item.date); });
+            if (filtered.length === 0) {
+                container.innerHTML = '<div class="no-data">선택한 날짜에 데이터가 없습니다.</div>';
+                dlArea.style.display = 'none';
+                return;
+            }
+
+            var html = '<table class="compare-table"><tr><th rowspan="2">날짜</th><th rowspan="2">직원명</th><th rowspan="2">순번</th><th rowspan="2">근무유형</th><th colspan="2" class="transport-header">🚗 이동서비스</th><th colspan="4" class="schedule-header">📋 근무일정</th><th colspan="4" class="attendance-header">🕐 실제출퇴근</th></tr>';
+            html += '<tr><th class="transport-header">시작</th><th class="transport-header">종료</th><th class="schedule-header">시작</th><th class="schedule-header">종료</th><th class="schedule-header">휴게</th><th class="schedule-header">총근무</th><th class="attendance-header">출근</th><th class="attendance-header">퇴근</th><th class="attendance-header">휴게</th><th class="attendance-header">총근무</th></tr>';
+
+            var currentDate = '';
+            filtered.forEach(function(item) {
+                if (item.date !== currentDate) {
+                    currentDate = item.date;
+                    html += '<tr class="date-row"><td colspan="14">📅 ' + formatDateWithWeekday(item.date) + '</td></tr>';
+                }
+                var rowClass = item.row_index > 0 ? 'sub-row' : '';
+                var rowIndexDisplay = item.total_rows > 1 ? '<span style="color:#999;font-size:0.8em">' + (item.row_index + 1) + '/' + item.total_rows + '</span>' : '';
+
+                var transportStartAlert = compareTime(item.transport_start, item.schedule_start) < 0;
+                var transportEndAlert = compareTime(item.transport_end, item.schedule_end) > 0;
+                var attendanceStartAlert = compareTime(item.attendance_start, item.schedule_start) > 0;
+                var attendanceEndAlert = compareTime(item.attendance_end, item.schedule_end) < 0;
+                var scheduleBreakAlert = isBreakTimeLessThan60(item.schedule_break);
+                var attendanceBreakAlert = isBreakTimeLessThan60(item.attendance_break);
+
+                var transportStartHtml, transportEndHtml;
+                if (item.transport_start && item.transport_start !== '-') {
+                    var as1 = transportStartAlert ? ' style="' + getTimeAlertStyle(item.transport_start, true) + '"' : '';
+                    transportStartHtml = '<span class="has-transport"' + as1 + '>' + item.transport_start + '</span>';
+                } else { transportStartHtml = '<span class="no-transport">-</span>'; }
+                if (item.transport_end && item.transport_end !== '-') {
+                    var as2 = transportEndAlert ? ' style="' + getTimeAlertStyle(item.transport_end, true) + '"' : '';
+                    transportEndHtml = '<span class="has-transport"' + as2 + '>' + item.transport_end + '</span>';
+                } else { transportEndHtml = '<span class="no-transport">-</span>'; }
+
+                var attendanceStartStyle = attendanceStartAlert ? ' style="' + getTimeAlertStyle(item.attendance_start, true) + '"' : '';
+                var attendanceEndStyle = attendanceEndAlert ? ' style="' + getTimeAlertStyle(item.attendance_end, true) + '"' : '';
+                var scheduleBreakStyle = scheduleBreakAlert ? ' style="' + getTimeAlertStyle(item.schedule_break, true) + '"' : '';
+                var attendanceBreakStyle = attendanceBreakAlert ? ' style="' + getTimeAlertStyle(item.attendance_break, true) + '"' : '';
+
+                html += '<tr class="' + rowClass + '"><td></td><td><strong>' + item.employee + '</strong></td><td>' + rowIndexDisplay + '</td><td>' + getWorkTypeBadge(item.work_type) + '</td><td>' + transportStartHtml + '</td><td>' + transportEndHtml + '</td><td class="schedule-time">' + (item.schedule_start || '-') + '</td><td class="schedule-time">' + (item.schedule_end || '-') + '</td><td class="schedule-time"' + scheduleBreakStyle + '>' + (item.schedule_break || '-') + '</td><td class="schedule-time">' + (item.schedule_work_hours || '-') + '</td><td class="attendance-time"' + attendanceStartStyle + '>' + (item.attendance_start || '-') + '</td><td class="attendance-time"' + attendanceEndStyle + '>' + (item.attendance_end || '-') + '</td><td class="attendance-time"' + attendanceBreakStyle + '>' + (item.attendance_break || '-') + '</td><td class="attendance-time">' + (item.attendance_work_hours || '-') + '</td></tr>';
+            });
+            html += '</table>';
+
+            // 요약
+            var totalRows = filtered.length;
+            var alertCount = filtered.filter(function(r) {
+                return compareTime(r.transport_start, r.schedule_start) < 0 || compareTime(r.transport_end, r.schedule_end) > 0;
+            }).length;
+            html += '<div style="margin-top:16px;padding:12px;background:#f8f9fa;border-radius:8px;font-size:13px;">';
+            html += '<strong>📊 선택 기간 요약:</strong> ' + selArray.length + '일 선택, 총 ' + totalRows + '건';
+            if (alertCount > 0) html += ', <span style="color:#dc3545;">⚠️ 이상 ' + alertCount + '건</span>';
+            html += '</div>';
+
+            container.innerHTML = html;
+            dlArea.style.display = 'block';
+        }
+
+        function downloadCompareCalendarExcel() {
+            var selArray = Array.from(compareSelectedDates).sort();
+            if (selArray.length === 0) return;
+            var selSet = new Set(selArray);
+            var filtered = compareData.by_date.filter(function(it) { return selSet.has(it.date); });
+            if (!filtered.length) return;
+            var headers = ['날짜','직원명','순번','근무유형','이동시작','이동종료','일정시작','일정종료','일정휴게','일정총근무','출근','퇴근','출퇴휴게','출퇴총근무'];
+            var data = filtered.map(function(it) { return [formatDateWithWeekday(it.date), it.employee, it.total_rows > 1 ? (it.row_index+1)+'/'+it.total_rows : '', it.work_type, it.transport_start, it.transport_end, it.schedule_start, it.schedule_end, it.schedule_break, it.schedule_work_hours, it.attendance_start, it.attendance_end, it.attendance_break, it.attendance_work_hours]; });
+            downloadExcelFile(data, headers, '근무시간_비교_선택_' + selArray.length + '일.xlsx', '일자별 비교');
+        }
+
+        function downloadExcel(view) {
+            if (!analysisData || !analysisData._raw) return;
+            var raw = analysisData._raw;
+            var sel = new Set(Array.from(selectedDates));
+            var filtered = {};
+            for (var dk in raw) { if (!sel.size || sel.has(dk)) filtered[dk] = raw[dk]; }
+            var allDrivers = new Set();
+            for (var dk2 in filtered) { for (var dr in filtered[dk2]) allDrivers.add(dr); }
+            allDrivers = Array.from(allDrivers).sort();
+            var allDts = Object.keys(filtered).sort();
+            var data = [];
+            if (view === 'driver') {
+                allDrivers.forEach(function(driver) { allDts.forEach(function(dt) { if (!filtered[dt][driver]) return; var d = filtered[dt][driver]; data.push([driver, dt, d.start_times.length ? d.start_times.sort()[0] : '-', d.end_times.length ? d.end_times.sort().reverse()[0] : '-']); }); });
+                downloadExcelFile(data, ['운전자','일자','첫 시작 시간','마지막 종료 시간'], '운전자별_근무시간.xlsx', '운전자별 근무시간');
+            } else {
+                allDts.forEach(function(dt) { allDrivers.forEach(function(driver) { if (!filtered[dt][driver]) return; var d = filtered[dt][driver]; data.push([dt, driver, d.start_times.length ? d.start_times.sort()[0] : '-', d.end_times.length ? d.end_times.sort().reverse()[0] : '-']); }); });
+                downloadExcelFile(data, ['일자','운전자','첫 시작 시간','마지막 종료 시간'], '일자별_운전자_근무시간.xlsx', '일자별 운전자 근무시간');
+            }
+        }
+        function downloadCompareExcel(view) {
+            if (!compareData) return;
+            var items = view === 'employee' ? compareData.by_employee : compareData.by_date;
+            var headers = view === 'date' ? ['날짜','직원명','순번','근무유형','이동시작','이동종료','일정시작','일정종료','일정휴게','일정총근무','출근','퇴근','출퇴휴게','출퇴총근무'] : ['직원명','날짜','순번','근무유형','이동시작','이동종료','일정시작','일정종료','일정휴게','일정총근무','출근','퇴근','출퇴휴게','출퇴총근무'];
+            var data = items.map(function(it) {
+                var dateWk = formatDateWithWeekday(it.date);
+                return view === 'date' ? [dateWk, it.employee, it.total_rows > 1 ? (it.row_index+1)+'/'+it.total_rows : '', it.work_type, it.transport_start, it.transport_end, it.schedule_start, it.schedule_end, it.schedule_break, it.schedule_work_hours, it.attendance_start, it.attendance_end, it.attendance_break, it.attendance_work_hours] : [it.employee, dateWk, it.total_rows > 1 ? (it.row_index+1)+'/'+it.total_rows : '', it.work_type, it.transport_start, it.transport_end, it.schedule_start, it.schedule_end, it.schedule_break, it.schedule_work_hours, it.attendance_start, it.attendance_end, it.attendance_break, it.attendance_work_hours];
+            });
+            var fname = view === 'employee' ? '직원별_근무시간_비교.xlsx' : '일자별_근무시간_비교.xlsx';
+            downloadExcelFile(data, headers, fname, view === 'employee' ? '직원별 비교' : '일자별 비교');
+        }
+        function downloadScheduleExcel(filter) {
+            if (!scheduleData || !scheduleData.results) return;
+            var headers = ['날짜','수급자','이동서비스(시작)','송영시간표(오전)','오전순번','오전차량','오전차량번호','오전운전자','오전비교','이동서비스(종료)','송영시간표(오후)','오후순번','오후차량','오후차량번호','오후운전자','오후비교'];
+            var data = [];
+            var dateKeys = Object.keys(scheduleData.results).sort();
+            dateKeys.forEach(function(dk) {
+                var dr = scheduleData.results[dk];
+                var items = dr.results;
+                if (filter === 'diff') items = items.filter(function(r) { return r.am_match === '다름' || r.pm_match === '다름'; });
+                if (!items.length) return;
+                items.forEach(function(r) {
+                    data.push([formatDateWithWeekday(dk), r.beneficiary, r.transport_start||'', r.schedule_am||'', r.am_seq||'', r.am_car||'', r.am_car_number||'', r.am_driver||'', r.am_match||'', r.transport_end||'', r.schedule_pm||'', r.pm_seq||'', r.pm_car||'', r.pm_car_number||'', r.pm_driver||'', r.pm_match||'']);
+                });
+            });
+            var fname = filter === 'diff' ? '송영시간표_비교_다름만.xlsx' : '송영시간표_비교_전체.xlsx';
+            downloadExcelFile(data, headers, fname, '송영시간표 비교');
+        }
+    </script>
+</body>
+</html>
