@@ -2122,6 +2122,8 @@
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         let dbAllRecords = [];
+        let dbSortCol = 'date';
+        let dbSortDir = 1;
 
         async function saveToSupabase() {
             if (!analysisData || !analysisData.by_date || analysisData.by_date.length === 0) {
@@ -2200,6 +2202,11 @@
             });
         }
 
+        function sortDbBy(col) {
+            if (dbSortCol === col) { dbSortDir *= -1; } else { dbSortCol = col; dbSortDir = 1; }
+            renderDbRecords();
+        }
+
         function renderDbRecords() {
             const content = document.getElementById('dbRecordsContent');
             const yearFilter = document.getElementById('dbYearFilter').value;
@@ -2216,30 +2223,69 @@
                 return;
             }
 
-            // 날짜별 그룹화
-            const byDate = {};
-            filtered.forEach(r => {
-                if (!byDate[r.date]) byDate[r.date] = [];
-                byDate[r.date].push(r);
+            const getVal = (r, col) => {
+                switch(col) {
+                    case 'date':        return r.date || '';
+                    case 'driver':      return r.driver || '';
+                    case 'first_start': return r.first_start || '';
+                    case 'last_end':    return r.last_end || '';
+                    default:            return '';
+                }
+            };
+            filtered.sort((a, b) => {
+                const av = getVal(a, dbSortCol), bv = getVal(b, dbSortCol);
+                return av < bv ? -dbSortDir : av > bv ? dbSortDir : 0;
             });
 
-            let html = '<div style="margin-bottom:10px;color:#555;font-size:0.9em;">총 <strong>' + filtered.length + '</strong>건 (' + Object.keys(byDate).length + '일)</div>';
-            html += '<div style="overflow-x:auto;"><table class="result-table"><thead><tr><th>날짜</th><th>운전자</th><th>첫 시작 시간</th><th>마지막 종료 시간</th><th>삭제</th></tr></thead><tbody>';
+            const thBase = 'cursor:pointer;user-select:none;white-space:nowrap;';
+            const icon = col => {
+                if (dbSortCol !== col) return ' <span style="color:rgba(255,255,255,0.4);font-size:0.75em;">⇅</span>';
+                return dbSortDir === 1
+                    ? ' <span style="font-size:0.75em;">▲</span>'
+                    : ' <span style="font-size:0.75em;">▼</span>';
+            };
 
-            Object.keys(byDate).sort().forEach(date => {
-                const rows = byDate[date];
-                rows.forEach((r, idx) => {
-                    const dateCell = idx === 0
-                        ? '<td rowspan="' + rows.length + '" style="font-weight:bold;background:#e8ecff;">' + formatDateWithWeekday(r.date) + '</td>'
-                        : '';
-                    html += '<tr>' + dateCell +
-                        '<td>' + r.driver + '</td>' +
-                        '<td>' + (r.first_start || '-') + '</td>' +
-                        '<td>' + (r.last_end || '-') + '</td>' +
-                        '<td><button onclick="deleteDbRecord(\'' + r.id + '\', \'' + r.date + '\')" style="padding:3px 8px;background:#dc3545;color:white;border:none;border-radius:4px;cursor:pointer;font-size:0.85em;">✕</button></td>' +
-                        '</tr>';
+            const groupByDate = (dbSortCol === 'date');
+            const dateSet = new Set(filtered.map(r => r.date));
+
+            let html = '<div style="margin-bottom:10px;color:#555;font-size:0.9em;">총 <strong>' + filtered.length + '</strong>건';
+            if (groupByDate) html += ' (' + dateSet.size + '일)';
+            html += '</div>';
+            html += '<div style="overflow-x:auto;"><table class="result-table"><thead><tr>';
+            html += '<th style="' + thBase + '" onclick="sortDbBy(\'date\')">날짜' + icon('date') + '</th>';
+            html += '<th style="' + thBase + '" onclick="sortDbBy(\'driver\')">운전자' + icon('driver') + '</th>';
+            html += '<th style="' + thBase + '" onclick="sortDbBy(\'first_start\')">첫 시작 시간' + icon('first_start') + '</th>';
+            html += '<th style="' + thBase + '" onclick="sortDbBy(\'last_end\')">마지막 종료 시간' + icon('last_end') + '</th>';
+            html += '<th>삭제</th></tr></thead><tbody>';
+
+            if (groupByDate) {
+                const byDate = {};
+                filtered.forEach(r => { if (!byDate[r.date]) byDate[r.date] = []; byDate[r.date].push(r); });
+                Object.keys(byDate).sort().forEach(date => {
+                    const rows = byDate[date];
+                    rows.forEach((r, idx) => {
+                        const dateCell = idx === 0
+                            ? '<td rowspan="' + rows.length + '" style="font-weight:bold;background:#e8ecff;">' + formatDateWithWeekday(r.date) + '</td>'
+                            : '';
+                        const delBtn = '<button onclick="deleteDbRecord(\'' + r.id + '\', \'' + r.date + '\')" style="padding:3px 8px;background:#dc3545;color:white;border:none;border-radius:4px;cursor:pointer;font-size:0.85em;">✕</button>';
+                        html += '<tr>' + dateCell
+                            + '<td>' + r.driver + '</td>'
+                            + '<td>' + (r.first_start || '-') + '</td>'
+                            + '<td>' + (r.last_end || '-') + '</td>'
+                            + '<td>' + delBtn + '</td></tr>';
+                    });
                 });
-            });
+            } else {
+                filtered.forEach(r => {
+                    const delBtn = '<button onclick="deleteDbRecord(\'' + r.id + '\', \'' + r.date + '\')" style="padding:3px 8px;background:#dc3545;color:white;border:none;border-radius:4px;cursor:pointer;font-size:0.85em;">✕</button>';
+                    html += '<tr>'
+                        + '<td style="font-weight:bold;background:#e8ecff;">' + formatDateWithWeekday(r.date) + '</td>'
+                        + '<td>' + r.driver + '</td>'
+                        + '<td>' + (r.first_start || '-') + '</td>'
+                        + '<td>' + (r.last_end || '-') + '</td>'
+                        + '<td>' + delBtn + '</td></tr>';
+                });
+            }
             html += '</tbody></table></div>';
             content.innerHTML = html;
         }
@@ -2564,6 +2610,8 @@
 
         // ===== workingtime_items (근무시간 비교) Supabase 연동 =====
         let wtAllRecords = [];
+        let wtSortCol = 'date';
+        let wtSortDir = 1;
 
         async function saveWorkingTimeToSupabase() {
             if (!compareData || !compareData.by_date || compareData.by_date.length === 0) {
@@ -2663,13 +2711,17 @@
             });
         }
 
+        function sortWtBy(col) {
+            if (wtSortCol === col) { wtSortDir *= -1; } else { wtSortCol = col; wtSortDir = 1; }
+            renderWorkingTimeRecords();
+        }
+
         function renderWorkingTimeRecords() {
             const content = document.getElementById('wtRecordsContent');
             const yearFilter = document.getElementById('wtYearFilter').value;
             const monthFilter = document.getElementById('wtMonthFilter').value;
             const empFilter = document.getElementById('wtEmployeeFilter').value;
 
-            // row_index === 0 인 레코드만 기준으로 필터 (실제 표시는 같은 date+employee 묶음 전체)
             const baseKeys = new Set();
             wtAllRecords.forEach(r => {
                 if (r.row_index === 0) {
@@ -2679,7 +2731,6 @@
                     baseKeys.add(r.date + '|' + r.employee);
                 }
             });
-
             const filtered = wtAllRecords.filter(r => baseKeys.has(r.date + '|' + r.employee));
 
             if (filtered.length === 0) {
@@ -2687,67 +2738,141 @@
                 return;
             }
 
-            // 날짜별 그룹화
-            const byDate = {};
-            filtered.forEach(r => {
-                if (!byDate[r.date]) byDate[r.date] = {};
-                if (!byDate[r.date][r.employee]) byDate[r.date][r.employee] = [];
-                byDate[r.date][r.employee].push(r);
-            });
+            const getVal = (r, col) => {
+                switch(col) {
+                    case 'date':                  return r.date || '';
+                    case 'employee':              return r.employee || '';
+                    case 'work_type':             return r.work_type || '';
+                    case 'transport_start':       return r.transport_start || '';
+                    case 'transport_end':         return r.transport_end || '';
+                    case 'schedule_start':        return r.schedule_start || '';
+                    case 'schedule_end':          return r.schedule_end || '';
+                    case 'schedule_break':        return r.schedule_break || '';
+                    case 'schedule_work_hours':   return r.schedule_work_hours || '';
+                    case 'attendance_start':      return r.attendance_start || '';
+                    case 'attendance_end':        return r.attendance_end || '';
+                    case 'attendance_break':      return r.attendance_break || '';
+                    case 'attendance_work_hours': return r.attendance_work_hours || '';
+                    default:                      return '';
+                }
+            };
 
+            const thBase = 'cursor:pointer;user-select:none;white-space:nowrap;';
+            const icon = col => {
+                if (wtSortCol !== col) return ' <span style="color:rgba(255,255,255,0.4);font-size:0.75em;">⇅</span>';
+                return wtSortDir === 1
+                    ? ' <span style="font-size:0.75em;">▲</span>'
+                    : ' <span style="font-size:0.75em;">▼</span>';
+            };
+            const th = (col, label, cls) => {
+                const st = (cls ? cls + ';' : '') + thBase;
+                return '<th' + (cls ? ' class="' + cls + '"' : '') + ' style="' + st + '" onclick="sortWtBy(\'' + col + '\')">' + label + icon(col) + '</th>';
+            };
+
+            const groupByDate = (wtSortCol === 'date');
             const totalCount = [...new Set(filtered.map(r => r.date + '|' + r.employee))].length;
-            let html = '<div style="margin-bottom:10px;color:#555;font-size:0.9em;">총 <strong>' + totalCount + '</strong>건 (' + Object.keys(byDate).length + '일)</div>';
-            html += '<div style="overflow-x:auto;"><table class="compare-table" style="font-size:10pt;"><thead>';
-            html += '<tr><th rowspan="2">날짜</th><th rowspan="2">직원명</th><th rowspan="2">유형</th>';
+
+            let html = '<div style="margin-bottom:10px;color:#555;font-size:0.9em;">총 <strong>' + totalCount + '</strong>건';
+            if (groupByDate) html += ' (' + [...new Set(filtered.map(r => r.date))].length + '일)';
+            html += '</div>';
+            html += '<div style="overflow-x:auto;"><table class="compare-table" style="font-size:10pt;"><thead><tr>';
+            html += '<th rowspan="2" style="' + thBase + '" onclick="sortWtBy(\'date\')">날짜' + icon('date') + '</th>';
+            html += '<th rowspan="2" style="' + thBase + '" onclick="sortWtBy(\'employee\')">직원명' + icon('employee') + '</th>';
+            html += '<th rowspan="2" style="' + thBase + '" onclick="sortWtBy(\'work_type\')">유형' + icon('work_type') + '</th>';
             html += '<th colspan="2" class="transport-header">🚗 이동서비스</th>';
             html += '<th colspan="4" class="schedule-header">📋 근무일정</th>';
             html += '<th colspan="4" class="attendance-header">🕐 실제출퇴근</th>';
-            html += '<th rowspan="2">삭제</th></tr>';
-            html += '<tr>';
-            html += '<th class="transport-header">시작</th><th class="transport-header">종료</th>';
-            html += '<th class="schedule-header">시작</th><th class="schedule-header">종료</th><th class="schedule-header">휴게</th><th class="schedule-header">총근무</th>';
-            html += '<th class="attendance-header">출근</th><th class="attendance-header">퇴근</th><th class="attendance-header">휴게</th><th class="attendance-header">총근무</th>';
+            html += '<th rowspan="2">삭제</th></tr><tr>';
+            html += th('transport_start', '시작', 'transport-header');
+            html += th('transport_end', '종료', 'transport-header');
+            html += th('schedule_start', '시작', 'schedule-header');
+            html += th('schedule_end', '종료', 'schedule-header');
+            html += th('schedule_break', '휴게', 'schedule-header');
+            html += th('schedule_work_hours', '총근무', 'schedule-header');
+            html += th('attendance_start', '출근', 'attendance-header');
+            html += th('attendance_end', '퇴근', 'attendance-header');
+            html += th('attendance_break', '휴게', 'attendance-header');
+            html += th('attendance_work_hours', '총근무', 'attendance-header');
             html += '</tr></thead><tbody>';
 
-            Object.keys(byDate).sort().forEach(date => {
-                const empMap = byDate[date];
-                let dateFirstRow = true;
-                const dateTotalRows = Object.values(empMap).reduce((sum, rows) => sum + rows.length, 0);
-
-                Object.keys(empMap).sort().forEach(emp => {
-                    const empRows = empMap[emp];
-                    let empFirstRow = true;
-
-                    empRows.forEach(r => {
-                        const dateCell = dateFirstRow
-                            ? '<td rowspan="' + dateTotalRows + '" style="font-weight:bold;background:#e8ecff;vertical-align:top;">' + formatDateWithWeekday(r.date) + '</td>'
-                            : '';
-                        const empCell = empFirstRow
-                            ? '<td rowspan="' + empRows.length + '" style="vertical-align:top;">' + r.employee + '</td>'
-                            : '';
-                        const delBtn = r.row_index === 0
-                            ? '<button onclick="deleteWtRecord(\'' + date + '\',\'' + emp.replace(/'/g, "\\'") + '\')" style="padding:3px 8px;background:#dc3545;color:white;border:none;border-radius:4px;cursor:pointer;font-size:0.85em;">✕</button>'
-                            : '';
-                        const rowNum = empRows.length > 1 ? '<span style="color:#999;font-size:0.8em;">' + (r.row_index + 1) + '/' + empRows.length + '</span>' : '';
-                        html += '<tr>' + dateCell + empCell +
-                            '<td>' + (r.work_type || '-') + rowNum + '</td>' +
-                            '<td>' + (r.transport_start || '-') + '</td>' +
-                            '<td>' + (r.transport_end || '-') + '</td>' +
-                            '<td class="schedule-time">' + (r.schedule_start || '-') + '</td>' +
-                            '<td class="schedule-time">' + (r.schedule_end || '-') + '</td>' +
-                            '<td class="schedule-time">' + (r.schedule_break || '-') + '</td>' +
-                            '<td class="schedule-time">' + (r.schedule_work_hours || '-') + '</td>' +
-                            '<td class="attendance-time">' + (r.attendance_start || '-') + '</td>' +
-                            '<td class="attendance-time">' + (r.attendance_end || '-') + '</td>' +
-                            '<td class="attendance-time">' + (r.attendance_break || '-') + '</td>' +
-                            '<td class="attendance-time">' + (r.attendance_work_hours || '-') + '</td>' +
-                            '<td>' + delBtn + '</td>' +
-                            '</tr>';
-                        dateFirstRow = false;
-                        empFirstRow = false;
+            if (groupByDate) {
+                const byDate = {};
+                filtered.forEach(r => {
+                    if (!byDate[r.date]) byDate[r.date] = {};
+                    if (!byDate[r.date][r.employee]) byDate[r.date][r.employee] = [];
+                    byDate[r.date][r.employee].push(r);
+                });
+                Object.keys(byDate).sort().forEach(date => {
+                    const empMap = byDate[date];
+                    let dateFirstRow = true;
+                    const dateTotalRows = Object.values(empMap).reduce((sum, rows) => sum + rows.length, 0);
+                    Object.keys(empMap).sort().forEach(emp => {
+                        const empRows = empMap[emp];
+                        let empFirstRow = true;
+                        empRows.forEach(r => {
+                            const dateCell = dateFirstRow
+                                ? '<td rowspan="' + dateTotalRows + '" style="font-weight:bold;background:#e8ecff;vertical-align:top;">' + formatDateWithWeekday(r.date) + '</td>'
+                                : '';
+                            const empCell = empFirstRow
+                                ? '<td rowspan="' + empRows.length + '" style="vertical-align:top;">' + r.employee + '</td>'
+                                : '';
+                            const delBtn = r.row_index === 0
+                                ? '<button onclick="deleteWtRecord(\'' + date + '\',\'' + emp.replace(/'/g, "\\'") + '\')" style="padding:3px 8px;background:#dc3545;color:white;border:none;border-radius:4px;cursor:pointer;font-size:0.85em;">✕</button>'
+                                : '';
+                            const rowNum = empRows.length > 1
+                                ? '<span style="color:#999;font-size:0.8em;"> ' + (r.row_index + 1) + '/' + empRows.length + '</span>'
+                                : '';
+                            html += '<tr>' + dateCell + empCell
+                                + '<td>' + (r.work_type || '-') + rowNum + '</td>'
+                                + '<td>' + (r.transport_start || '-') + '</td>'
+                                + '<td>' + (r.transport_end || '-') + '</td>'
+                                + '<td class="schedule-time">' + (r.schedule_start || '-') + '</td>'
+                                + '<td class="schedule-time">' + (r.schedule_end || '-') + '</td>'
+                                + '<td class="schedule-time">' + (r.schedule_break || '-') + '</td>'
+                                + '<td class="schedule-time">' + (r.schedule_work_hours || '-') + '</td>'
+                                + '<td class="attendance-time">' + (r.attendance_start || '-') + '</td>'
+                                + '<td class="attendance-time">' + (r.attendance_end || '-') + '</td>'
+                                + '<td class="attendance-time">' + (r.attendance_break || '-') + '</td>'
+                                + '<td class="attendance-time">' + (r.attendance_work_hours || '-') + '</td>'
+                                + '<td>' + delBtn + '</td></tr>';
+                            dateFirstRow = false;
+                            empFirstRow = false;
+                        });
                     });
                 });
-            });
+            } else {
+                // 플랫 정렬
+                filtered.sort((a, b) => {
+                    const av = getVal(a, wtSortCol), bv = getVal(b, wtSortCol);
+                    if (av !== bv) return av < bv ? -wtSortDir : wtSortDir;
+                    if (a.date !== b.date) return a.date < b.date ? -1 : 1;
+                    if (a.employee !== b.employee) return a.employee < b.employee ? -1 : 1;
+                    return a.row_index - b.row_index;
+                });
+                filtered.forEach(r => {
+                    const delBtn = r.row_index === 0
+                        ? '<button onclick="deleteWtRecord(\'' + r.date + '\',\'' + r.employee.replace(/'/g, "\\'") + '\')" style="padding:3px 8px;background:#dc3545;color:white;border:none;border-radius:4px;cursor:pointer;font-size:0.85em;">✕</button>'
+                        : '';
+                    const rowNum = r.total_rows > 1
+                        ? '<span style="color:#999;font-size:0.8em;"> ' + (r.row_index + 1) + '/' + r.total_rows + '</span>'
+                        : '';
+                    html += '<tr>'
+                        + '<td style="font-weight:bold;background:#e8ecff;">' + formatDateWithWeekday(r.date) + '</td>'
+                        + '<td>' + r.employee + '</td>'
+                        + '<td>' + (r.work_type || '-') + rowNum + '</td>'
+                        + '<td>' + (r.transport_start || '-') + '</td>'
+                        + '<td>' + (r.transport_end || '-') + '</td>'
+                        + '<td class="schedule-time">' + (r.schedule_start || '-') + '</td>'
+                        + '<td class="schedule-time">' + (r.schedule_end || '-') + '</td>'
+                        + '<td class="schedule-time">' + (r.schedule_break || '-') + '</td>'
+                        + '<td class="schedule-time">' + (r.schedule_work_hours || '-') + '</td>'
+                        + '<td class="attendance-time">' + (r.attendance_start || '-') + '</td>'
+                        + '<td class="attendance-time">' + (r.attendance_end || '-') + '</td>'
+                        + '<td class="attendance-time">' + (r.attendance_break || '-') + '</td>'
+                        + '<td class="attendance-time">' + (r.attendance_work_hours || '-') + '</td>'
+                        + '<td>' + delBtn + '</td></tr>';
+                });
+            }
             html += '</tbody></table></div>';
             content.innerHTML = html;
         }
