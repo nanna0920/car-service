@@ -2439,7 +2439,6 @@
                         ? '<td rowspan="' + rows.length + '" style="font-weight:bold;background:#e8ecff;vertical-align:top;">' + formatDateWithWeekday(r.date) + '</td>'
                         : '';
                     const amStyle = r.am_match === '다름' ? diffStyle : (r.am_match === '같음' ? sameStyle : '');
-                    const pmStyle = r.pm_match === '다름' ? diffStyle : (r.pm_match === '같음' ? pmStyle : '');
                     const pmCellStyle = r.pm_match === '다름' ? diffStyle : (r.pm_match === '같음' ? sameStyle : '');
                     const amCarInfo = [r.am_car, r.am_driver].filter(Boolean).join('/') || '-';
                     const pmCarInfo = [r.pm_car, r.pm_driver].filter(Boolean).join('/') || '-';
