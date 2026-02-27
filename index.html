@@ -254,8 +254,20 @@
                 <div id="dbSubCartime" style="padding-top:16px; display:none;">
                     <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px; flex-wrap:wrap;">
                         <label style="font-weight:bold; color:#555;">기간 필터:</label>
-                        <select id="ctYearFilter" onchange="renderCarTimeRecords()" style="padding:6px 12px; border:1px solid #ddd; border-radius:6px;"><option value="">전체 연도</option></select>
-                        <select id="ctMonthFilter" onchange="renderCarTimeRecords()" style="padding:6px 12px; border:1px solid #ddd; border-radius:6px;"><option value="">전체 월</option></select>
+                        <div style="display:inline-flex; border:1px solid #ddd; border-radius:6px; overflow:hidden; font-size:0.85em;">
+                            <button id="ctBtnYM" onclick="setCtFilterMode('ym')" style="padding:5px 11px; background:#667eea; color:white; border:none; cursor:pointer;">연/월</button>
+                            <button id="ctBtnRange" onclick="setCtFilterMode('range')" style="padding:5px 11px; background:#f0f0f0; color:#555; border:none; border-left:1px solid #ddd; cursor:pointer;">📅 날짜 범위</button>
+                        </div>
+                        <div id="ctFilterYM" style="display:flex; gap:8px; align-items:center;">
+                            <select id="ctYearFilter" onchange="renderCarTimeRecords()" style="padding:6px 12px; border:1px solid #ddd; border-radius:6px;"><option value="">전체 연도</option></select>
+                            <select id="ctMonthFilter" onchange="renderCarTimeRecords()" style="padding:6px 12px; border:1px solid #ddd; border-radius:6px;"><option value="">전체 월</option></select>
+                        </div>
+                        <div id="ctFilterRange" style="display:none; gap:6px; align-items:center; flex-wrap:wrap;">
+                            <input type="date" id="ctDateFrom" onchange="renderCarTimeRecords()" style="padding:5px 8px; border:1px solid #ddd; border-radius:6px;">
+                            <span style="color:#666;">~</span>
+                            <input type="date" id="ctDateTo" onchange="renderCarTimeRecords()" style="padding:5px 8px; border:1px solid #ddd; border-radius:6px;">
+                            <button onclick="clearCtDateRange()" style="padding:5px 10px; background:#6c757d; color:white; border:none; border-radius:6px; cursor:pointer; font-weight:bold; font-size:0.85em;">초기화</button>
+                        </div>
                         <select id="ctMatchFilter" onchange="renderCarTimeRecords()" style="padding:6px 12px; border:1px solid #ddd; border-radius:6px;">
                             <option value="">전체</option>
                             <option value="다름">다름만</option>
@@ -271,8 +283,20 @@
                 <div id="dbSubWorkingtime" style="padding-top:16px; display:none;">
                     <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px; flex-wrap:wrap;">
                         <label style="font-weight:bold; color:#555;">기간 필터:</label>
-                        <select id="wtYearFilter" onchange="renderWorkingTimeRecords()" style="padding:6px 12px; border:1px solid #ddd; border-radius:6px;"><option value="">전체 연도</option></select>
-                        <select id="wtMonthFilter" onchange="renderWorkingTimeRecords()" style="padding:6px 12px; border:1px solid #ddd; border-radius:6px;"><option value="">전체 월</option></select>
+                        <div style="display:inline-flex; border:1px solid #ddd; border-radius:6px; overflow:hidden; font-size:0.85em;">
+                            <button id="wtBtnYM" onclick="setWtFilterMode('ym')" style="padding:5px 11px; background:#667eea; color:white; border:none; cursor:pointer;">연/월</button>
+                            <button id="wtBtnRange" onclick="setWtFilterMode('range')" style="padding:5px 11px; background:#f0f0f0; color:#555; border:none; border-left:1px solid #ddd; cursor:pointer;">📅 날짜 범위</button>
+                        </div>
+                        <div id="wtFilterYM" style="display:flex; gap:8px; align-items:center;">
+                            <select id="wtYearFilter" onchange="renderWorkingTimeRecords()" style="padding:6px 12px; border:1px solid #ddd; border-radius:6px;"><option value="">전체 연도</option></select>
+                            <select id="wtMonthFilter" onchange="renderWorkingTimeRecords()" style="padding:6px 12px; border:1px solid #ddd; border-radius:6px;"><option value="">전체 월</option></select>
+                        </div>
+                        <div id="wtFilterRange" style="display:none; gap:6px; align-items:center; flex-wrap:wrap;">
+                            <input type="date" id="wtDateFrom" onchange="renderWorkingTimeRecords()" style="padding:5px 8px; border:1px solid #ddd; border-radius:6px;">
+                            <span style="color:#666;">~</span>
+                            <input type="date" id="wtDateTo" onchange="renderWorkingTimeRecords()" style="padding:5px 8px; border:1px solid #ddd; border-radius:6px;">
+                            <button onclick="clearWtDateRange()" style="padding:5px 10px; background:#6c757d; color:white; border:none; border-radius:6px; cursor:pointer; font-weight:bold; font-size:0.85em;">초기화</button>
+                        </div>
                         <select id="wtEmployeeFilter" onchange="renderWorkingTimeRecords()" style="padding:6px 12px; border:1px solid #ddd; border-radius:6px;"><option value="">전체 직원</option></select>
                         <button onclick="loadWorkingTimeRecords()" style="padding:6px 14px; background:linear-gradient(135deg,#667eea,#764ba2); color:white; border:none; border-radius:6px; cursor:pointer; font-weight:bold;">🔄 새로고침</button>
                         <button onclick="deleteAllWorkingTimeRecords()" style="padding:6px 14px; background:#dc3545; color:white; border:none; border-radius:6px; cursor:pointer; font-weight:bold;">🗑️ 전체 삭제</button>
@@ -2334,6 +2358,7 @@
 
         // ===== cartime_items (송영시간표 비교) Supabase 연동 =====
         let ctAllRecords = [];
+        let ctFilterMode = 'ym';
         let ctSortCol = 'date';
         let ctSortDir = 1; // 1=오름차순, -1=내림차순
 
@@ -2440,6 +2465,24 @@
             });
         }
 
+        function setCtFilterMode(mode) {
+            ctFilterMode = mode;
+            document.getElementById('ctFilterYM').style.display    = mode === 'ym'    ? 'flex' : 'none';
+            document.getElementById('ctFilterRange').style.display = mode === 'range' ? 'flex' : 'none';
+            var btnYM = document.getElementById('ctBtnYM');
+            var btnR  = document.getElementById('ctBtnRange');
+            btnYM.style.background = mode === 'ym'    ? '#667eea' : '#f0f0f0';
+            btnYM.style.color      = mode === 'ym'    ? 'white'   : '#555';
+            btnR.style.background  = mode === 'range' ? '#667eea' : '#f0f0f0';
+            btnR.style.color       = mode === 'range' ? 'white'   : '#555';
+            renderCarTimeRecords();
+        }
+        function clearCtDateRange() {
+            document.getElementById('ctDateFrom').value = '';
+            document.getElementById('ctDateTo').value   = '';
+            renderCarTimeRecords();
+        }
+
         function sortCtBy(col) {
             if (ctSortCol === col) { ctSortDir *= -1; } else { ctSortCol = col; ctSortDir = 1; }
             renderCarTimeRecords();
@@ -2447,13 +2490,20 @@
 
         function renderCarTimeRecords() {
             const content = document.getElementById('ctRecordsContent');
-            const yearFilter = document.getElementById('ctYearFilter').value;
+            const yearFilter  = document.getElementById('ctYearFilter').value;
             const monthFilter = document.getElementById('ctMonthFilter').value;
+            const dateFrom    = document.getElementById('ctDateFrom') ? document.getElementById('ctDateFrom').value : '';
+            const dateTo      = document.getElementById('ctDateTo')   ? document.getElementById('ctDateTo').value   : '';
             const matchFilter = document.getElementById('ctMatchFilter').value;
 
             let filtered = ctAllRecords.filter(r => {
-                if (yearFilter && !r.date.startsWith(yearFilter)) return false;
-                if (monthFilter && r.date.substring(5, 7) !== monthFilter) return false;
+                if (ctFilterMode === 'range') {
+                    if (dateFrom && r.date < dateFrom) return false;
+                    if (dateTo   && r.date > dateTo)   return false;
+                } else {
+                    if (yearFilter  && !r.date.startsWith(yearFilter)) return false;
+                    if (monthFilter && r.date.substring(5, 7) !== monthFilter) return false;
+                }
                 if (matchFilter) {
                     const hasMatch = r.am_match === '\ub2e4\ub984' || r.pm_match === '\ub2e4\ub984';
                     if (matchFilter === '\ub2e4\ub984' && !hasMatch) return false;
@@ -2575,16 +2625,28 @@
         }
 
         async function deleteAllCarTimeRecords() {
-            const yearFilter = document.getElementById('ctYearFilter').value;
+            const yearFilter  = document.getElementById('ctYearFilter').value;
             const monthFilter = document.getElementById('ctMonthFilter').value;
-            const label = (yearFilter ? yearFilter + '년 ' : '') + (monthFilter ? parseInt(monthFilter) + '월 ' : '전체 ');
+            const dateFrom    = document.getElementById('ctDateFrom') ? document.getElementById('ctDateFrom').value : '';
+            const dateTo      = document.getElementById('ctDateTo')   ? document.getElementById('ctDateTo').value   : '';
+            let label;
+            if (ctFilterMode === 'range' && (dateFrom || dateTo)) {
+                label = (dateFrom || '?') + ' ~ ' + (dateTo || '?') + ' ';
+            } else {
+                label = (yearFilter ? yearFilter + '년 ' : '') + (monthFilter ? parseInt(monthFilter) + '월 ' : '전체 ');
+            }
             if (!confirm(label + '송영시간표 비교 기록을 모두 삭제하시겠습니까?')) return;
 
             let query;
-            if (yearFilter || monthFilter) {
+            if (ctFilterMode === 'range' ? (dateFrom || dateTo) : (yearFilter || monthFilter)) {
                 const filtered = ctAllRecords.filter(r => {
-                    if (yearFilter && !r.date.startsWith(yearFilter)) return false;
-                    if (monthFilter && r.date.substring(5, 7) !== monthFilter) return false;
+                    if (ctFilterMode === 'range') {
+                        if (dateFrom && r.date < dateFrom) return false;
+                        if (dateTo   && r.date > dateTo)   return false;
+                    } else {
+                        if (yearFilter  && !r.date.startsWith(yearFilter)) return false;
+                        if (monthFilter && r.date.substring(5, 7) !== monthFilter) return false;
+                    }
                     return true;
                 });
                 const ids = filtered.map(r => r.id);
@@ -2610,6 +2672,7 @@
 
         // ===== workingtime_items (근무시간 비교) Supabase 연동 =====
         let wtAllRecords = [];
+        let wtFilterMode = 'ym';
         let wtSortCol = 'date';
         let wtSortDir = 1;
 
@@ -2711,6 +2774,24 @@
             });
         }
 
+        function setWtFilterMode(mode) {
+            wtFilterMode = mode;
+            document.getElementById('wtFilterYM').style.display    = mode === 'ym'    ? 'flex' : 'none';
+            document.getElementById('wtFilterRange').style.display = mode === 'range' ? 'flex' : 'none';
+            var btnYM = document.getElementById('wtBtnYM');
+            var btnR  = document.getElementById('wtBtnRange');
+            btnYM.style.background = mode === 'ym'    ? '#667eea' : '#f0f0f0';
+            btnYM.style.color      = mode === 'ym'    ? 'white'   : '#555';
+            btnR.style.background  = mode === 'range' ? '#667eea' : '#f0f0f0';
+            btnR.style.color       = mode === 'range' ? 'white'   : '#555';
+            renderWorkingTimeRecords();
+        }
+        function clearWtDateRange() {
+            document.getElementById('wtDateFrom').value = '';
+            document.getElementById('wtDateTo').value   = '';
+            renderWorkingTimeRecords();
+        }
+
         function sortWtBy(col) {
             if (wtSortCol === col) { wtSortDir *= -1; } else { wtSortCol = col; wtSortDir = 1; }
             renderWorkingTimeRecords();
@@ -2722,11 +2803,19 @@
             const monthFilter = document.getElementById('wtMonthFilter').value;
             const empFilter = document.getElementById('wtEmployeeFilter').value;
 
+            const dateFrom    = document.getElementById('wtDateFrom') ? document.getElementById('wtDateFrom').value : '';
+            const dateTo      = document.getElementById('wtDateTo')   ? document.getElementById('wtDateTo').value   : '';
+
             const baseKeys = new Set();
             wtAllRecords.forEach(r => {
                 if (r.row_index === 0) {
-                    if (yearFilter && !r.date.startsWith(yearFilter)) return;
-                    if (monthFilter && r.date.substring(5, 7) !== monthFilter) return;
+                    if (wtFilterMode === 'range') {
+                        if (dateFrom && r.date < dateFrom) return;
+                        if (dateTo   && r.date > dateTo)   return;
+                    } else {
+                        if (yearFilter  && !r.date.startsWith(yearFilter)) return;
+                        if (monthFilter && r.date.substring(5, 7) !== monthFilter) return;
+                    }
                     if (empFilter && r.employee !== empFilter) return;
                     baseKeys.add(r.date + '|' + r.employee);
                 }
@@ -2891,16 +2980,29 @@
         }
 
         async function deleteAllWorkingTimeRecords() {
-            const yearFilter = document.getElementById('wtYearFilter').value;
+            const yearFilter  = document.getElementById('wtYearFilter').value;
             const monthFilter = document.getElementById('wtMonthFilter').value;
-            const label = (yearFilter ? yearFilter + '년 ' : '') + (monthFilter ? parseInt(monthFilter) + '월 ' : '전체 ');
+            const dateFrom    = document.getElementById('wtDateFrom') ? document.getElementById('wtDateFrom').value : '';
+            const dateTo      = document.getElementById('wtDateTo')   ? document.getElementById('wtDateTo').value   : '';
+            let label;
+            if (wtFilterMode === 'range' && (dateFrom || dateTo)) {
+                label = (dateFrom || '?') + ' ~ ' + (dateTo || '?') + ' ';
+            } else {
+                label = (yearFilter ? yearFilter + '년 ' : '') + (monthFilter ? parseInt(monthFilter) + '월 ' : '전체 ');
+            }
             if (!confirm(label + '근무시간 비교 기록을 모두 삭제하시겠습니까?')) return;
 
             let query;
-            if (yearFilter || monthFilter) {
+            if (wtFilterMode === 'range' ? (dateFrom || dateTo) : (yearFilter || monthFilter)) {
                 const filtered = wtAllRecords.filter(r => {
-                    if (yearFilter && !r.date.startsWith(yearFilter)) return false;
-                    if (monthFilter && r.date.substring(5, 7) !== monthFilter) return false;
+                    if (r.row_index !== 0) return false;
+                    if (wtFilterMode === 'range') {
+                        if (dateFrom && r.date < dateFrom) return false;
+                        if (dateTo   && r.date > dateTo)   return false;
+                    } else {
+                        if (yearFilter  && !r.date.startsWith(yearFilter)) return false;
+                        if (monthFilter && r.date.substring(5, 7) !== monthFilter) return false;
+                    }
                     return true;
                 });
                 const ids = filtered.map(r => r.id);
