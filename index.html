@@ -71,7 +71,7 @@
         .tab-content { display: none; }
         .tab-content.active { display: block; }
         .result-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 11pt; }
-        .result-table th { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 12px; text-align: center; font-size: 10pt; }
+        .result-table th { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 12px; text-align: center; font-size: 11pt; }
         .result-table td { padding: 10px; text-align: center; border-bottom: 1px solid #eee; }
         .result-table tr:hover { background: #f8f9ff; }
         .date-header, .driver-header { background: #e8ecff !important; font-weight: bold; color: #333; }
@@ -90,7 +90,7 @@
         .upload-box .upload-area { padding: 25px; margin-bottom: 0; }
         .table-wrapper { overflow-x: auto; margin-top: 20px; }
         .compare-table { width: 100%; border-collapse: collapse; font-size: 11pt; }
-        .compare-table th { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 4px 3px; text-align: center; font-size: 10pt; }
+        .compare-table th { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 4px 3px; text-align: center; font-size: 11pt; }
         .compare-table th.transport-header { background: #28a745; }
         .compare-table th.schedule-header { background: #17a2b8; }
         .compare-table th.attendance-header { background: #fd7e14; }
@@ -2677,7 +2677,7 @@
             let html = '<div style="margin-bottom:10px;color:#555;font-size:0.9em;">\uc5f4 <strong>' + filtered.length + '</strong>\uac74';
             if (groupByDate) html += ' (' + dateSet.size + '\uc77c)';
             html += '</div>';
-            html += '<div style="overflow-x:auto;"><table class="result-table" style="font-size:10pt;"><thead><tr>';
+            html += '<div style="overflow-x:auto;"><table class="result-table" style="font-size:11pt;"><thead><tr>';
             html += '<th rowspan="2" style="' + thBase + '" onclick="sortCtBy(\'date\')"' + hover + '>\ub0a0\uc9dc' + icon('date') + '</th>';
             html += '<th rowspan="2" style="' + thBase + '" onclick="sortCtBy(\'beneficiary\')"' + hover + '>\uc218\uae09\uc790' + icon('beneficiary') + '</th>';
             html += '<th rowspan="2">\uc0ad\uc81c</th>';
@@ -3085,7 +3085,7 @@
             let html = '<div style="margin-bottom:10px;color:#555;font-size:0.9em;">총 <strong>' + totalCount + '</strong>건';
             if (groupByDate) html += ' (' + [...new Set(filtered.map(r => r.date))].length + '일)';
             html += '</div>';
-            html += '<div style="overflow-x:auto;"><table class="compare-table" style="font-size:10pt;"><thead><tr>';
+            html += '<div style="overflow-x:auto;"><table class="compare-table" style="font-size:11pt;"><thead><tr>';
             html += '<th rowspan="2" style="' + thBase + '" onclick="sortWtBy(\'date\')">날짜' + icon('date') + '</th>';
             html += '<th rowspan="2" style="' + thBase + '" onclick="sortWtBy(\'employee\')">직원명' + icon('employee') + '</th>';
             html += '<th rowspan="2" style="' + thBase + '" onclick="sortWtBy(\'work_type\')">유형' + icon('work_type') + '</th>';
