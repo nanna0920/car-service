@@ -2614,8 +2614,9 @@
 
             let filtered = ctAllRecords.filter(r => {
                 if (ctFilterMode === 'range') {
-                    if (dateFrom && r.date < dateFrom) return false;
-                    if (dateTo   && r.date > dateTo)   return false;
+                    const rd1 = r.date ? r.date.replace(/\./g, '-') : '';
+                    if (dateFrom && rd1 < dateFrom) return false;
+                    if (dateTo   && rd1 > dateTo)   return false;
                 } else if (ctFilterMode === 'cal') {
                     if (ctCalSelectedDates.size === 0) return false;
                     if (!ctCalSelectedDates.has(r.date || '')) return false;
@@ -2764,8 +2765,9 @@
                     if (ctFilterMode === 'cal') {
                         return ctCalSelectedDates.has(r.date || '');
                     } else if (ctFilterMode === 'range') {
-                        if (dateFrom && r.date < dateFrom) return false;
-                        if (dateTo   && r.date > dateTo)   return false;
+                        const rd2 = r.date ? r.date.replace(/\./g, '-') : '';
+                        if (dateFrom && rd2 < dateFrom) return false;
+                        if (dateTo   && rd2 > dateTo)   return false;
                     } else {
                         if (yearFilter  && !r.date.startsWith(yearFilter)) return false;
                         if (monthFilter && r.date.substring(5, 7) !== monthFilter) return false;
@@ -3025,8 +3027,9 @@
             wtAllRecords.forEach(r => {
                 if (r.row_index === 0) {
                     if (wtFilterMode === 'range') {
-                        if (dateFrom && r.date < dateFrom) return;
-                        if (dateTo   && r.date > dateTo)   return;
+                        const rd3 = r.date ? r.date.replace(/\./g, '-') : '';
+                        if (dateFrom && rd3 < dateFrom) return;
+                        if (dateTo   && rd3 > dateTo)   return;
                     } else if (wtFilterMode === 'cal') {
                         if (wtCalSelectedDates.size === 0) return;
                         if (!wtCalSelectedDates.has(r.date || '')) return;
@@ -3215,8 +3218,9 @@
                 const filtered = wtAllRecords.filter(r => {
                     if (r.row_index !== 0) return false;
                     if (wtFilterMode === 'range') {
-                        if (dateFrom && r.date < dateFrom) return false;
-                        if (dateTo   && r.date > dateTo)   return false;
+                        const rd4 = r.date ? r.date.replace(/\./g, '-') : '';
+                        if (dateFrom && rd4 < dateFrom) return false;
+                        if (dateTo   && rd4 > dateTo)   return false;
                     } else {
                         if (yearFilter  && !r.date.startsWith(yearFilter)) return false;
                         if (monthFilter && r.date.substring(5, 7) !== monthFilter) return false;
