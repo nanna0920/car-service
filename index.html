@@ -2497,7 +2497,7 @@
 
         function buildCtCalAllDates() {
             const dateSet = new Set();
-            ctAllRecords.forEach(r => { if (r.date) dateSet.add(r.date.substring(0, 10)); });
+            ctAllRecords.forEach(r => { if (r.date) dateSet.add(r.date); });
             ctCalAllDates = Array.from(dateSet).sort();
             if (ctCalAllDates.length > 0) {
                 const latest = ctCalAllDates[ctCalAllDates.length - 1];
@@ -2515,6 +2515,7 @@
             const lastDay  = new Date(ctCalYear, ctCalMonth, 0);
             const startDow = firstDay.getDay();
             const daysInMonth = lastDay.getDate();
+            var sep = ctCalAllDates.length > 0 ? ctCalAllDates[0].charAt(4) : '.';
             for (var i = 0; i < startDow; i++) {
                 var e = document.createElement('div');
                 e.className = 'calendar-day empty';
@@ -2522,7 +2523,7 @@
             }
             for (var d = 1; d <= daysInMonth; d++) {
                 var dayDiv = document.createElement('div');
-                var dateStr = ctCalYear + '-' + String(ctCalMonth).padStart(2,'0') + '-' + String(d).padStart(2,'0');
+                var dateStr = ctCalYear + sep + String(ctCalMonth).padStart(2,'0') + sep + String(d).padStart(2,'0');
                 var hasData = ctCalAllDates.indexOf(dateStr) >= 0;
                 var isSel   = ctCalSelectedDates.has(dateStr);
                 dayDiv.className = 'calendar-day';
@@ -2617,7 +2618,7 @@
                     if (dateTo   && r.date > dateTo)   return false;
                 } else if (ctFilterMode === 'cal') {
                     if (ctCalSelectedDates.size === 0) return false;
-                    if (!ctCalSelectedDates.has(r.date ? r.date.substring(0, 10) : '')) return false;
+                    if (!ctCalSelectedDates.has(r.date || '')) return false;
                 } else {
                     if (yearFilter  && !r.date.startsWith(yearFilter)) return false;
                     if (monthFilter && r.date.substring(5, 7) !== monthFilter) return false;
@@ -2761,7 +2762,7 @@
             if (ctFilterMode === 'cal' ? ctCalSelectedDates.size > 0 : (ctFilterMode === 'range' ? (dateFrom || dateTo) : (yearFilter || monthFilter))) {
                 const filtered = ctAllRecords.filter(r => {
                     if (ctFilterMode === 'cal') {
-                        return ctCalSelectedDates.has(r.date ? r.date.substring(0, 10) : '');
+                        return ctCalSelectedDates.has(r.date || '');
                     } else if (ctFilterMode === 'range') {
                         if (dateFrom && r.date < dateFrom) return false;
                         if (dateTo   && r.date > dateTo)   return false;
@@ -2904,7 +2905,7 @@
 
         function buildWtCalAllDates() {
             const dateSet = new Set();
-            wtAllRecords.forEach(r => { if (r.date) dateSet.add(r.date.substring(0, 10)); });
+            wtAllRecords.forEach(r => { if (r.date) dateSet.add(r.date); });
             wtCalAllDates = Array.from(dateSet).sort();
             if (wtCalAllDates.length > 0) {
                 const latest = wtCalAllDates[wtCalAllDates.length - 1];
@@ -2922,6 +2923,7 @@
             const lastDay  = new Date(wtCalYear, wtCalMonth, 0);
             const startDow = firstDay.getDay();
             const daysInMonth = lastDay.getDate();
+            var sep = wtCalAllDates.length > 0 ? wtCalAllDates[0].charAt(4) : '.';
             for (var i = 0; i < startDow; i++) {
                 var e = document.createElement('div');
                 e.className = 'calendar-day empty';
@@ -2929,7 +2931,7 @@
             }
             for (var d = 1; d <= daysInMonth; d++) {
                 var dayDiv = document.createElement('div');
-                var dateStr = wtCalYear + '-' + String(wtCalMonth).padStart(2,'0') + '-' + String(d).padStart(2,'0');
+                var dateStr = wtCalYear + sep + String(wtCalMonth).padStart(2,'0') + sep + String(d).padStart(2,'0');
                 var hasData = wtCalAllDates.indexOf(dateStr) >= 0;
                 var isSel   = wtCalSelectedDates.has(dateStr);
                 dayDiv.className = 'calendar-day';
@@ -3027,7 +3029,7 @@
                         if (dateTo   && r.date > dateTo)   return;
                     } else if (wtFilterMode === 'cal') {
                         if (wtCalSelectedDates.size === 0) return;
-                        if (!wtCalSelectedDates.has(r.date ? r.date.substring(0, 10) : '')) return;
+                        if (!wtCalSelectedDates.has(r.date || '')) return;
                     } else {
                         if (yearFilter  && !r.date.startsWith(yearFilter)) return;
                         if (monthFilter && r.date.substring(5, 7) !== monthFilter) return;
