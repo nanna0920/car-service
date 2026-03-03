@@ -286,6 +286,7 @@
                         <div style="display:inline-flex; border:1px solid #ddd; border-radius:6px; overflow:hidden; font-size:0.85em;">
                             <button id="wtBtnYM" onclick="setWtFilterMode('ym')" style="padding:5px 11px; background:#667eea; color:white; border:none; cursor:pointer;">연/월</button>
                             <button id="wtBtnRange" onclick="setWtFilterMode('range')" style="padding:5px 11px; background:#f0f0f0; color:#555; border:none; border-left:1px solid #ddd; cursor:pointer;">📅 날짜 범위</button>
+                            <button id="wtBtnCal" onclick="setWtFilterMode('cal')" style="padding:5px 11px; background:#f0f0f0; color:#555; border:none; border-left:1px solid #ddd; cursor:pointer;">📆 달력</button>
                         </div>
                         <div id="wtFilterYM" style="display:flex; gap:8px; align-items:center;">
                             <select id="wtYearFilter" onchange="renderWorkingTimeRecords()" style="padding:6px 12px; border:1px solid #ddd; border-radius:6px;"><option value="">전체 연도</option></select>
@@ -296,6 +297,17 @@
                             <span style="color:#666;">~</span>
                             <input type="date" id="wtDateTo" onchange="renderWorkingTimeRecords()" style="padding:5px 8px; border:1px solid #ddd; border-radius:6px;">
                             <button onclick="clearWtDateRange()" style="padding:5px 10px; background:#6c757d; color:white; border:none; border-radius:6px; cursor:pointer; font-weight:bold; font-size:0.85em;">초기화</button>
+                        </div>
+                        <div id="wtFilterCal" style="display:none; width:100%; padding-top:10px;">
+                            <div style="display:flex; gap:8px; align-items:center; margin-bottom:10px; flex-wrap:wrap;">
+                                <button onclick="navigateWtCalMonth(-1)" style="background:none; border:1px solid #ddd; border-radius:6px; padding:4px 10px; cursor:pointer; font-size:14px;">◀</button>
+                                <span id="wtCalMonthLabel" style="font-weight:bold; color:#333; min-width:90px; text-align:center;"></span>
+                                <button onclick="navigateWtCalMonth(1)" style="background:none; border:1px solid #ddd; border-radius:6px; padding:4px 10px; cursor:pointer; font-size:14px;">▶</button>
+                                <button onclick="wtCalToggleAll()" style="padding:5px 12px; background:#667eea; color:white; border:none; border-radius:6px; cursor:pointer; font-size:0.85em;">전체 선택</button>
+                                <button onclick="wtCalClearAll()" style="padding:5px 12px; background:#6c757d; color:white; border:none; border-radius:6px; cursor:pointer; font-size:0.85em;">전체 해제</button>
+                                <span id="wtCalSelectedInfo" style="font-size:12px; color:#636e72;">0일 선택됨</span>
+                            </div>
+                            <div id="wtCalendarGrid" class="calendar-grid compact-calendar" style="max-width:420px;"></div>
                         </div>
                         <select id="wtEmployeeFilter" onchange="renderWorkingTimeRecords()" style="padding:6px 12px; border:1px solid #ddd; border-radius:6px;"><option value="">전체 직원</option></select>
                         <button onclick="loadWorkingTimeRecords()" style="padding:6px 14px; background:linear-gradient(135deg,#667eea,#764ba2); color:white; border:none; border-radius:6px; cursor:pointer; font-weight:bold;">🔄 새로고침</button>
@@ -2675,6 +2687,10 @@
         let wtFilterMode = 'ym';
         let wtSortCol = 'date';
         let wtSortDir = 1;
+        let wtCalSelectedDates = new Set();
+        let wtCalAllDates = [];
+        let wtCalYear = new Date().getFullYear();
+        let wtCalMonth = new Date().getMonth() + 1;
 
         async function saveWorkingTimeToSupabase() {
             if (!compareData || !compareData.by_date || compareData.by_date.length === 0) {
@@ -2736,6 +2752,8 @@
 
             wtAllRecords = data || [];
             buildWtFilters();
+            buildWtCalAllDates();
+            if (wtFilterMode === 'cal') renderWtCalendar();
             renderWorkingTimeRecords();
         }
 
@@ -2774,16 +2792,101 @@
             });
         }
 
+        function buildWtCalAllDates() {
+            const dateSet = new Set();
+            wtAllRecords.forEach(r => { if (r.date) dateSet.add(r.date.substring(0, 10)); });
+            wtCalAllDates = Array.from(dateSet).sort();
+            if (wtCalAllDates.length > 0) {
+                const latest = wtCalAllDates[wtCalAllDates.length - 1];
+                wtCalYear  = parseInt(latest.substring(0, 4));
+                wtCalMonth = parseInt(latest.substring(5, 7));
+            }
+        }
+
+        function renderWtCalendar() {
+            const grid = document.getElementById('wtCalendarGrid');
+            if (!grid) return;
+            document.getElementById('wtCalMonthLabel').textContent = wtCalYear + '년 ' + wtCalMonth + '월';
+            grid.innerHTML = '<div class="calendar-day-header">일</div><div class="calendar-day-header">월</div><div class="calendar-day-header">화</div><div class="calendar-day-header">수</div><div class="calendar-day-header">목</div><div class="calendar-day-header">금</div><div class="calendar-day-header">토</div>';
+            const firstDay = new Date(wtCalYear, wtCalMonth - 1, 1);
+            const lastDay  = new Date(wtCalYear, wtCalMonth, 0);
+            const startDow = firstDay.getDay();
+            const daysInMonth = lastDay.getDate();
+            for (var i = 0; i < startDow; i++) {
+                var e = document.createElement('div');
+                e.className = 'calendar-day empty';
+                grid.appendChild(e);
+            }
+            for (var d = 1; d <= daysInMonth; d++) {
+                var dayDiv = document.createElement('div');
+                var dateStr = wtCalYear + '-' + String(wtCalMonth).padStart(2,'0') + '-' + String(d).padStart(2,'0');
+                var hasData = wtCalAllDates.indexOf(dateStr) >= 0;
+                var isSel   = wtCalSelectedDates.has(dateStr);
+                dayDiv.className = 'calendar-day';
+                if (hasData) dayDiv.classList.add('has-data');
+                if (isSel)   dayDiv.classList.add('selected');
+                if (!hasData) dayDiv.classList.add('empty');
+                dayDiv.textContent = d;
+                if (hasData) {
+                    dayDiv.setAttribute('data-date', dateStr);
+                    dayDiv.onclick = (function(ds, div) {
+                        return function() {
+                            if (wtCalSelectedDates.has(ds)) { wtCalSelectedDates.delete(ds); div.classList.remove('selected'); }
+                            else { wtCalSelectedDates.add(ds); div.classList.add('selected'); }
+                            updateWtCalInfo();
+                            renderWorkingTimeRecords();
+                        };
+                    })(dateStr, dayDiv);
+                }
+                grid.appendChild(dayDiv);
+            }
+            updateWtCalInfo();
+        }
+
+        function navigateWtCalMonth(dir) {
+            wtCalMonth += dir;
+            if (wtCalMonth > 12) { wtCalMonth = 1;  wtCalYear++; }
+            if (wtCalMonth < 1)  { wtCalMonth = 12; wtCalYear--; }
+            renderWtCalendar();
+        }
+
+        function wtCalToggleAll() {
+            var prefix = wtCalYear + '-' + String(wtCalMonth).padStart(2,'0');
+            wtCalAllDates.filter(d => d.startsWith(prefix)).forEach(d => wtCalSelectedDates.add(d));
+            renderWtCalendar();
+            renderWorkingTimeRecords();
+        }
+
+        function wtCalClearAll() {
+            var prefix = wtCalYear + '-' + String(wtCalMonth).padStart(2,'0');
+            wtCalAllDates.filter(d => d.startsWith(prefix)).forEach(d => wtCalSelectedDates.delete(d));
+            renderWtCalendar();
+            renderWorkingTimeRecords();
+        }
+
+        function updateWtCalInfo() {
+            var prefix    = wtCalYear + '-' + String(wtCalMonth).padStart(2,'0');
+            var monthDates = wtCalAllDates.filter(d => d.startsWith(prefix));
+            var selCount   = monthDates.filter(d => wtCalSelectedDates.has(d)).length;
+            var el = document.getElementById('wtCalSelectedInfo');
+            if (el) el.textContent = selCount + '일 선택됨 / ' + monthDates.length + '일';
+        }
+
         function setWtFilterMode(mode) {
             wtFilterMode = mode;
             document.getElementById('wtFilterYM').style.display    = mode === 'ym'    ? 'flex' : 'none';
             document.getElementById('wtFilterRange').style.display = mode === 'range' ? 'flex' : 'none';
-            var btnYM = document.getElementById('wtBtnYM');
-            var btnR  = document.getElementById('wtBtnRange');
-            btnYM.style.background = mode === 'ym'    ? '#667eea' : '#f0f0f0';
-            btnYM.style.color      = mode === 'ym'    ? 'white'   : '#555';
-            btnR.style.background  = mode === 'range' ? '#667eea' : '#f0f0f0';
-            btnR.style.color       = mode === 'range' ? 'white'   : '#555';
+            document.getElementById('wtFilterCal').style.display   = mode === 'cal'   ? 'block' : 'none';
+            var btnYM  = document.getElementById('wtBtnYM');
+            var btnR   = document.getElementById('wtBtnRange');
+            var btnCal = document.getElementById('wtBtnCal');
+            btnYM.style.background  = mode === 'ym'    ? '#667eea' : '#f0f0f0';
+            btnYM.style.color       = mode === 'ym'    ? 'white'   : '#555';
+            btnR.style.background   = mode === 'range' ? '#667eea' : '#f0f0f0';
+            btnR.style.color        = mode === 'range' ? 'white'   : '#555';
+            btnCal.style.background = mode === 'cal'   ? '#667eea' : '#f0f0f0';
+            btnCal.style.color      = mode === 'cal'   ? 'white'   : '#555';
+            if (mode === 'cal') { buildWtCalAllDates(); renderWtCalendar(); }
             renderWorkingTimeRecords();
         }
         function clearWtDateRange() {
@@ -2812,6 +2915,9 @@
                     if (wtFilterMode === 'range') {
                         if (dateFrom && r.date < dateFrom) return;
                         if (dateTo   && r.date > dateTo)   return;
+                    } else if (wtFilterMode === 'cal') {
+                        if (wtCalSelectedDates.size === 0) return;
+                        if (!wtCalSelectedDates.has(r.date ? r.date.substring(0, 10) : '')) return;
                     } else {
                         if (yearFilter  && !r.date.startsWith(yearFilter)) return;
                         if (monthFilter && r.date.substring(5, 7) !== monthFilter) return;
