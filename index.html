@@ -257,6 +257,7 @@
                         <div style="display:inline-flex; border:1px solid #ddd; border-radius:6px; overflow:hidden; font-size:0.85em;">
                             <button id="ctBtnYM" onclick="setCtFilterMode('ym')" style="padding:5px 11px; background:#667eea; color:white; border:none; cursor:pointer;">연/월</button>
                             <button id="ctBtnRange" onclick="setCtFilterMode('range')" style="padding:5px 11px; background:#f0f0f0; color:#555; border:none; border-left:1px solid #ddd; cursor:pointer;">📅 날짜 범위</button>
+                            <button id="ctBtnCal" onclick="setCtFilterMode('cal')" style="padding:5px 11px; background:#f0f0f0; color:#555; border:none; border-left:1px solid #ddd; cursor:pointer;">📆 달력</button>
                         </div>
                         <div id="ctFilterYM" style="display:flex; gap:8px; align-items:center;">
                             <select id="ctYearFilter" onchange="renderCarTimeRecords()" style="padding:6px 12px; border:1px solid #ddd; border-radius:6px;"><option value="">전체 연도</option></select>
@@ -267,6 +268,17 @@
                             <span style="color:#666;">~</span>
                             <input type="date" id="ctDateTo" onchange="renderCarTimeRecords()" style="padding:5px 8px; border:1px solid #ddd; border-radius:6px;">
                             <button onclick="clearCtDateRange()" style="padding:5px 10px; background:#6c757d; color:white; border:none; border-radius:6px; cursor:pointer; font-weight:bold; font-size:0.85em;">초기화</button>
+                        </div>
+                        <div id="ctFilterCal" style="display:none; width:100%; padding-top:10px;">
+                            <div style="display:flex; gap:8px; align-items:center; margin-bottom:10px; flex-wrap:wrap;">
+                                <button onclick="navigateCtCalMonth(-1)" style="background:none; border:1px solid #ddd; border-radius:6px; padding:4px 10px; cursor:pointer; font-size:14px;">◀</button>
+                                <span id="ctCalMonthLabel" style="font-weight:bold; color:#333; min-width:90px; text-align:center;"></span>
+                                <button onclick="navigateCtCalMonth(1)" style="background:none; border:1px solid #ddd; border-radius:6px; padding:4px 10px; cursor:pointer; font-size:14px;">▶</button>
+                                <button onclick="ctCalToggleAll()" style="padding:5px 12px; background:#667eea; color:white; border:none; border-radius:6px; cursor:pointer; font-size:0.85em;">전체 선택</button>
+                                <button onclick="ctCalClearAll()" style="padding:5px 12px; background:#6c757d; color:white; border:none; border-radius:6px; cursor:pointer; font-size:0.85em;">전체 해제</button>
+                                <span id="ctCalSelectedInfo" style="font-size:12px; color:#636e72;">0일 선택됨</span>
+                            </div>
+                            <div id="ctCalendarGrid" class="calendar-grid compact-calendar" style="max-width:420px;"></div>
                         </div>
                         <select id="ctMatchFilter" onchange="renderCarTimeRecords()" style="padding:6px 12px; border:1px solid #ddd; border-radius:6px;">
                             <option value="">전체</option>
@@ -2372,7 +2384,11 @@
         let ctAllRecords = [];
         let ctFilterMode = 'ym';
         let ctSortCol = 'date';
-        let ctSortDir = 1; // 1=오름차순, -1=내림차순
+        let ctSortDir = 1;
+        let ctCalSelectedDates = new Set();
+        let ctCalAllDates = [];
+        let ctCalYear = new Date().getFullYear();
+        let ctCalMonth = new Date().getMonth() + 1; // 1=오름차순, -1=내림차순
 
         function switchDbSubTab(tab) {
             const tabs = ['carservice', 'cartime', 'workingtime'];
@@ -2450,6 +2466,8 @@
 
             ctAllRecords = data || [];
             buildCtFilters();
+            buildCtCalAllDates();
+            if (ctFilterMode === 'cal') renderCtCalendar();
             renderCarTimeRecords();
         }
 
@@ -2477,16 +2495,101 @@
             });
         }
 
+        function buildCtCalAllDates() {
+            const dateSet = new Set();
+            ctAllRecords.forEach(r => { if (r.date) dateSet.add(r.date.substring(0, 10)); });
+            ctCalAllDates = Array.from(dateSet).sort();
+            if (ctCalAllDates.length > 0) {
+                const latest = ctCalAllDates[ctCalAllDates.length - 1];
+                ctCalYear  = parseInt(latest.substring(0, 4));
+                ctCalMonth = parseInt(latest.substring(5, 7));
+            }
+        }
+
+        function renderCtCalendar() {
+            const grid = document.getElementById('ctCalendarGrid');
+            if (!grid) return;
+            document.getElementById('ctCalMonthLabel').textContent = ctCalYear + '년 ' + ctCalMonth + '월';
+            grid.innerHTML = '<div class="calendar-day-header">일</div><div class="calendar-day-header">월</div><div class="calendar-day-header">화</div><div class="calendar-day-header">수</div><div class="calendar-day-header">목</div><div class="calendar-day-header">금</div><div class="calendar-day-header">토</div>';
+            const firstDay = new Date(ctCalYear, ctCalMonth - 1, 1);
+            const lastDay  = new Date(ctCalYear, ctCalMonth, 0);
+            const startDow = firstDay.getDay();
+            const daysInMonth = lastDay.getDate();
+            for (var i = 0; i < startDow; i++) {
+                var e = document.createElement('div');
+                e.className = 'calendar-day empty';
+                grid.appendChild(e);
+            }
+            for (var d = 1; d <= daysInMonth; d++) {
+                var dayDiv = document.createElement('div');
+                var dateStr = ctCalYear + '-' + String(ctCalMonth).padStart(2,'0') + '-' + String(d).padStart(2,'0');
+                var hasData = ctCalAllDates.indexOf(dateStr) >= 0;
+                var isSel   = ctCalSelectedDates.has(dateStr);
+                dayDiv.className = 'calendar-day';
+                if (hasData) dayDiv.classList.add('has-data');
+                if (isSel)   dayDiv.classList.add('selected');
+                if (!hasData) dayDiv.classList.add('empty');
+                dayDiv.textContent = d;
+                if (hasData) {
+                    dayDiv.setAttribute('data-date', dateStr);
+                    dayDiv.onclick = (function(ds, div) {
+                        return function() {
+                            if (ctCalSelectedDates.has(ds)) { ctCalSelectedDates.delete(ds); div.classList.remove('selected'); }
+                            else { ctCalSelectedDates.add(ds); div.classList.add('selected'); }
+                            updateCtCalInfo();
+                            renderCarTimeRecords();
+                        };
+                    })(dateStr, dayDiv);
+                }
+                grid.appendChild(dayDiv);
+            }
+            updateCtCalInfo();
+        }
+
+        function navigateCtCalMonth(dir) {
+            ctCalMonth += dir;
+            if (ctCalMonth > 12) { ctCalMonth = 1;  ctCalYear++; }
+            if (ctCalMonth < 1)  { ctCalMonth = 12; ctCalYear--; }
+            renderCtCalendar();
+        }
+
+        function ctCalToggleAll() {
+            var prefix = ctCalYear + '-' + String(ctCalMonth).padStart(2,'0');
+            ctCalAllDates.filter(d => d.startsWith(prefix)).forEach(d => ctCalSelectedDates.add(d));
+            renderCtCalendar();
+            renderCarTimeRecords();
+        }
+
+        function ctCalClearAll() {
+            var prefix = ctCalYear + '-' + String(ctCalMonth).padStart(2,'0');
+            ctCalAllDates.filter(d => d.startsWith(prefix)).forEach(d => ctCalSelectedDates.delete(d));
+            renderCtCalendar();
+            renderCarTimeRecords();
+        }
+
+        function updateCtCalInfo() {
+            var prefix     = ctCalYear + '-' + String(ctCalMonth).padStart(2,'0');
+            var monthDates = ctCalAllDates.filter(d => d.startsWith(prefix));
+            var selCount   = monthDates.filter(d => ctCalSelectedDates.has(d)).length;
+            var el = document.getElementById('ctCalSelectedInfo');
+            if (el) el.textContent = selCount + '일 선택됨 / ' + monthDates.length + '일';
+        }
+
         function setCtFilterMode(mode) {
             ctFilterMode = mode;
             document.getElementById('ctFilterYM').style.display    = mode === 'ym'    ? 'flex' : 'none';
             document.getElementById('ctFilterRange').style.display = mode === 'range' ? 'flex' : 'none';
-            var btnYM = document.getElementById('ctBtnYM');
-            var btnR  = document.getElementById('ctBtnRange');
-            btnYM.style.background = mode === 'ym'    ? '#667eea' : '#f0f0f0';
-            btnYM.style.color      = mode === 'ym'    ? 'white'   : '#555';
-            btnR.style.background  = mode === 'range' ? '#667eea' : '#f0f0f0';
-            btnR.style.color       = mode === 'range' ? 'white'   : '#555';
+            document.getElementById('ctFilterCal').style.display   = mode === 'cal'   ? 'block' : 'none';
+            var btnYM  = document.getElementById('ctBtnYM');
+            var btnR   = document.getElementById('ctBtnRange');
+            var btnCal = document.getElementById('ctBtnCal');
+            btnYM.style.background  = mode === 'ym'    ? '#667eea' : '#f0f0f0';
+            btnYM.style.color       = mode === 'ym'    ? 'white'   : '#555';
+            btnR.style.background   = mode === 'range' ? '#667eea' : '#f0f0f0';
+            btnR.style.color        = mode === 'range' ? 'white'   : '#555';
+            btnCal.style.background = mode === 'cal'   ? '#667eea' : '#f0f0f0';
+            btnCal.style.color      = mode === 'cal'   ? 'white'   : '#555';
+            if (mode === 'cal') { buildCtCalAllDates(); renderCtCalendar(); }
             renderCarTimeRecords();
         }
         function clearCtDateRange() {
@@ -2512,6 +2615,9 @@
                 if (ctFilterMode === 'range') {
                     if (dateFrom && r.date < dateFrom) return false;
                     if (dateTo   && r.date > dateTo)   return false;
+                } else if (ctFilterMode === 'cal') {
+                    if (ctCalSelectedDates.size === 0) return false;
+                    if (!ctCalSelectedDates.has(r.date ? r.date.substring(0, 10) : '')) return false;
                 } else {
                     if (yearFilter  && !r.date.startsWith(yearFilter)) return false;
                     if (monthFilter && r.date.substring(5, 7) !== monthFilter) return false;
@@ -2642,7 +2748,9 @@
             const dateFrom    = document.getElementById('ctDateFrom') ? document.getElementById('ctDateFrom').value : '';
             const dateTo      = document.getElementById('ctDateTo')   ? document.getElementById('ctDateTo').value   : '';
             let label;
-            if (ctFilterMode === 'range' && (dateFrom || dateTo)) {
+            if (ctFilterMode === 'cal') {
+                label = ctCalSelectedDates.size > 0 ? '선택한 ' + ctCalSelectedDates.size + '일 ' : '전체 ';
+            } else if (ctFilterMode === 'range' && (dateFrom || dateTo)) {
                 label = (dateFrom || '?') + ' ~ ' + (dateTo || '?') + ' ';
             } else {
                 label = (yearFilter ? yearFilter + '년 ' : '') + (monthFilter ? parseInt(monthFilter) + '월 ' : '전체 ');
@@ -2650,9 +2758,11 @@
             if (!confirm(label + '송영시간표 비교 기록을 모두 삭제하시겠습니까?')) return;
 
             let query;
-            if (ctFilterMode === 'range' ? (dateFrom || dateTo) : (yearFilter || monthFilter)) {
+            if (ctFilterMode === 'cal' ? ctCalSelectedDates.size > 0 : (ctFilterMode === 'range' ? (dateFrom || dateTo) : (yearFilter || monthFilter))) {
                 const filtered = ctAllRecords.filter(r => {
-                    if (ctFilterMode === 'range') {
+                    if (ctFilterMode === 'cal') {
+                        return ctCalSelectedDates.has(r.date ? r.date.substring(0, 10) : '');
+                    } else if (ctFilterMode === 'range') {
                         if (dateFrom && r.date < dateFrom) return false;
                         if (dateTo   && r.date > dateTo)   return false;
                     } else {
